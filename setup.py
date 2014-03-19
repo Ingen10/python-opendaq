@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from setuptools import setup
-from easydaq import __version__
 
 DESCRIPTION = "GUI interface for openDAQ"
 LONG_DESCRIPTION = """`OpenDAQ <http://www.open-daq.com/>`_ is an open source
@@ -12,7 +11,7 @@ counters."""
 
 setup(
     name='easydaq',
-    version=__version__,
+    version='0.1',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     author='Adrian Alvarez',
