@@ -211,7 +211,7 @@ Set the value of the DIO terminal (0: low, 1: high).
     - number: variable that defines the PIO number.
     - value: variable that defines low or high voltage output (+5V).
 *Raises:*
-    - ValueError: An error ocurred when the PIO number doesn´t exist, and print 'Invalid PIO number'.
+    - ValueError: An error ocurred when the PIO number doesn't exist, and print 'Invalid PIO number'.
     
 init_counter(edge):
 =========================
