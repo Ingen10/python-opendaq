@@ -20,4 +20,3 @@
 from daq import DAQ
 
 __all__ = ['DAQ', 'LED_OFF', 'LED_GREEN', 'LED_RED']
-__version__ = '0.1'
