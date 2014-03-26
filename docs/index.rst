@@ -10,10 +10,9 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-   
 
-.. autoclass:: opendaq.daq.DAQ
-    :members:
+   opendaq
+   
 
 Indices and tables
 ==================

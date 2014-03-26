@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2012
+# Copyright 2013
 # Adrian Alvarez <alvarez@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
 # and Armando Vincelle <armando@ingen10.com>
 #

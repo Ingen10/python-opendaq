@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2012 Juan Menendez <juanmb@ingen10.com>
+# Copyright 2013 Juan Menendez <juanmb@ingen10.com>
 #
 # This file is part of opendaq.
 #
@@ -19,4 +19,5 @@
 
 from daq import DAQ
 
-__all__ = ['DAQ', 'LED_OFF', 'LED_GREEN', 'LED_RED']
+__version__ = '0.1.0'
+__all__ = ['DAQ']

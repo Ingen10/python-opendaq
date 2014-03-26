@@ -1,0 +1,7 @@
+pyserial==2.7
+Sphinx==1.2.2
+pytest==2.5.2
+flake8==2.1.0
+tox==1.7.0
+wheel==0.22.0
+coverage==3.7.1
