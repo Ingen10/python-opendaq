@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from setuptools import setup, Command
-from opendaq import __version__
 
 DESCRIPTION = 'Python binding for openDAQ hardware'
 LONG_DESCRIPTION = """
@@ -24,12 +23,12 @@ class PyTest(Command):
 
 setup(
     name='opendaq',
-    version=__version__,
+    version='0.1',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     author='Juan Menendez',
     author_email='juanmb@ingen10.com',
-    url='http://github.com/juanmb/python-opendaq',
+    url='http://github.com/opendaq/python-opendaq',
     license='LGPL',
     platforms=['any'],
     install_requires=['pyserial'],
@@ -41,7 +40,6 @@ setup(
         'License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)',
         'Natural Language :: English',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2.5',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Topic :: Software Development :: Scientific/Engineering'
