@@ -16,9 +16,7 @@
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
 from opendaq.serial_sim import SerialSim
-from opendaq.common import crc
 from random import randint
-
 
 NPIOS = 7
 NINPUTS = 8
@@ -102,7 +100,7 @@ class DAQSimulator(SerialSim):
         return npio, dir
 
     @SerialSim.command(13, 'h', 'h')
-    def cmd_set_daq(self, value):
+    def cmd_set_dac(self, value):
         """Set DAQ output voltage.
         value -- Output voltage in mV as a signed word (16 bit) value
 
@@ -134,26 +132,3 @@ class DAQSimulator(SerialSim):
         self.adc_nsamples = nsamples
         value = randint(-2**14, 2**14 - 1)
         return value, pinput, ninput, gain, nsamples
-
-
-if __name__ == '__main__':
-    import struct
-
-    def str2hex(string):
-        hexstr = ["%02x" % ord(c) for c in string]
-        return ' '.join(hexstr)
-
-    daq = DAQSimulator()
-
-    for cmd, n in daq.list_commands():
-        print "%02d: %s" % (n, cmd)
-
-    daq.cmd_set_pio(1, 1)
-    print daq.cmd_get_pio(1)
-
-    packet = struct.pack('bb', 1, 0)
-    packet = crc(packet) + packet
-
-    daq.write(packet)
-    resp = daq.read(4)
-    print str2hex(resp)

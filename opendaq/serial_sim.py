@@ -77,7 +77,7 @@ class SerialSim(object):
         try:
             ncmd, ln, cmd_data = self.__unpack_header(data)
             f, _, _, cmd_fmt, ret_fmt = self.__get_command(ncmd, ln)
-            args = struct.unpack(cmd_fmt, cmd_data)
+            args = struct.unpack('>'+cmd_fmt, cmd_data)
             ret = self.__pack_response(ncmd, f(self, *args), ret_fmt)
         except (LengthError, ValueError):
             return self.NACK
