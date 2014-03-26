@@ -44,9 +44,11 @@ def check_crc(data):
 
 def mkcmd(ncmd, fmt, *args):
     """Make a command packet
-    ncmd -- command number
-    fmt  -- format string, excluding header (in 'struct' notation)
-    args -- arguments
+
+    Args:
+        ncmd: command number
+        fmt: format string, excluding header (in 'struct' notation)
+        args: command arguments
     """
     cmdlen = struct.calcsize(fmt)
     fmt = '>BB' + fmt

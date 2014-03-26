@@ -37,8 +37,10 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(18, 'B', 'B')
     def cmd_led_w(self, color):
-        """Set LED color.
-        color -- LED color (0-3)
+        """Set LED color
+
+        Args:
+            color: LED color (0-3)
 
         """
         if not 0 <= color <= 3:
@@ -49,8 +51,10 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(3, 'B', 'BB')
     def cmd_get_pio(self, npio):
-        """Get the value of a PIO.
-        npio -- PIO number (1-6)
+        """Get the value of a PIO
+
+        Args:
+            npio: PIO number (1-6)
 
         """
         if not 0 < npio <= NPIOS:
@@ -60,9 +64,11 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(3, 'BB', 'BB')
     def cmd_set_pio(self, npio, value):
-        """Set the value of a PIO.
-        npio -- PIO number (1-6)
-        value -- PIO value (1, 1)
+        """Set the value of a PIO
+
+        Args:
+            npio: PIO number (1-6)
+            value: PIO value (1, 1)
 
         """
         if not 0 < npio <= NPIOS:
@@ -75,8 +81,10 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(5, 'B', 'BB')
     def cmd_get_pio_dir(self, npio):
-        """Get the value of a PIO.
-        npio -- PIO number (1-6)
+        """Get the value of a PIO
+
+        Args:
+            npio: PIO number (1-6)
 
         """
         if not 0 < npio <= NPIOS:
@@ -86,9 +94,11 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(5, 'BB', 'BB')
     def cmd_set_pio_dir(self, npio, dir):
-        """Set the value of a PIO.
-        npio -- PIO number (1-6)
-        dir -- PIO direction (0: input, 1: output)
+        """Set the value of a PIO
+
+        Args:
+            npio: PIO number (1-6)
+            dir: PIO direction (0: input, 1: output)
 
         """
         if not 0 < npio <= NPIOS:
@@ -101,8 +111,10 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(13, 'h', 'h')
     def cmd_set_dac(self, value):
-        """Set DAQ output voltage.
-        value -- Output voltage in mV as a signed word (16 bit) value
+        """Set DAQ output voltage
+
+        Args:
+            value: Output voltage in mV as a signed word (16 bit) value
 
         """
         if not -4096 <= value < 4096:
