@@ -35,12 +35,3 @@ opendaq.simulator module
     :members:
     :undoc-members:
     :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: opendaq
-    :members:
-    :undoc-members:
-    :show-inheritance:
