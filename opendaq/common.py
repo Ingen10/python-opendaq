@@ -31,7 +31,7 @@ class LengthError(ValueError):
 
 def crc(data):
     s = sum((ord(c) for c in data)) % 65536
-    return struct.pack('>H', s)
+    return struct.pack('!H', s)
 
 
 def check_crc(data):
@@ -50,8 +50,8 @@ def mkcmd(ncmd, fmt, *args):
         fmt: format string, excluding header (in 'struct' notation)
         args: command arguments
     """
-    cmdlen = struct.calcsize(fmt)
-    fmt = '>BB' + fmt
+    fmt = '!BB' + fmt
+    cmdlen = struct.calcsize(fmt) - 2
     cmd = struct.pack(fmt, ncmd, cmdlen, *args)
     packet = crc(cmd) + cmd
     return packet

@@ -24,8 +24,8 @@ NGAINS = 4
 
 
 class DAQSimulator(SerialSim):
-    def __init__(self):
-        SerialSim.__init__(self)
+    def __init__(self, port=None, baudrate=9600, timeout=None):
+        SerialSim.__init__(self, port, baudrate, timeout)
         self.pios = [0]*NPIOS
         self.pios_dir = [0]*NPIOS
         self.led_color = 0
@@ -34,6 +34,12 @@ class DAQSimulator(SerialSim):
         self.adc_ninput = 0
         self.adc_gain = 1
         self.adc_nsamples = 20
+        self.calib_gains = [100]*17
+        self.calib_offsets = [1]*17
+
+        self.hw_ver = 0
+        self.fw_ver = 56
+        self.dev_id = 456423
 
     @SerialSim.command(18, 'B', 'B')
     def cmd_led_w(self, color):
@@ -60,7 +66,7 @@ class DAQSimulator(SerialSim):
         if not 0 < npio <= NPIOS:
             raise ValueError("Invalid PIO number")
 
-        return npio, self.pios[npio]
+        return npio, self.pios[npio-1]
 
     @SerialSim.command(3, 'BB', 'BB')
     def cmd_set_pio(self, npio, value):
@@ -76,7 +82,7 @@ class DAQSimulator(SerialSim):
         if value not in (0, 1):
             raise ValueError("Invalid PIO value")
 
-        self.pios[npio] = value
+        self.pios[npio-1] = value
         return npio, value
 
     @SerialSim.command(5, 'B', 'BB')
@@ -90,7 +96,7 @@ class DAQSimulator(SerialSim):
         if not 0 < npio <= NPIOS:
             raise ValueError("Invalid PIO number")
 
-        return npio, self.pios_dir[npio]
+        return npio, self.pios_dir[npio-1]
 
     @SerialSim.command(5, 'BB', 'BB')
     def cmd_set_pio_dir(self, npio, dir):
@@ -106,7 +112,7 @@ class DAQSimulator(SerialSim):
         if dir not in (0, 1):
             raise ValueError("Invalid PIO direction")
 
-        self.pios_dir[npio] = dir
+        self.pios_dir[npio-1] = dir
         return npio, dir
 
     @SerialSim.command(13, 'h', 'h')
@@ -144,3 +150,13 @@ class DAQSimulator(SerialSim):
         self.adc_nsamples = nsamples
         value = randint(-2**14, 2**14 - 1)
         return value, pinput, ninput, gain, nsamples
+
+    @SerialSim.command(39, '', 'BBI')
+    def cmd_idconfig(self):
+        return self.hw_ver, self.fw_ver, self.dev_id
+
+    @SerialSim.command(36, 'B', 'BHh')
+    def cmd_getcalib(self, index):
+        if not 0 <= index <= (5 if self.hw_ver else 16):
+            raise ValueError("Invalid calibration index")
+        return index, self.calib_gains[index], self.calib_offsets[index]

@@ -21,6 +21,9 @@ class TestSimulator(unittest.TestCase):
     def setUp(self):
         self.daq = DAQSimulator()
 
+    def test_unknown_command(self):
+        self.cmd_fail(220, 'B', 1)
+
     def test_set_led(self):
         self.cmd_echo(18, 'B', 1)
         assert self.daq.led_color == 1
@@ -29,10 +32,10 @@ class TestSimulator(unittest.TestCase):
         # invalid color
         self.cmd_fail(18, 'B', 4)
 
-    def test_set_daq(self):
+    def test_set_dac(self):
         self.cmd_echo(13, 'h', -1200)
         assert self.daq.dac_value == -1200
 
-    def test_set_daq_error(self):
+    def test_set_dac_error(self):
         # invalid DAC value
         self.cmd_fail(13, 'h', 5000)

@@ -22,6 +22,8 @@
 import struct
 import time
 import serial
+from opendaq.common import crc, check_crc, mkcmd, CRCError, LengthError
+from opendaq.simulator import DAQSimulator
 
 BAUDS = 115200
 INPUT_MODES = ('ANALOG_INPUT', 'ANALOG_OUTPUT', 'DIGITAL_INPUT',
@@ -30,85 +32,46 @@ LED_OFF = 0
 LED_GREEN = 1
 LED_RED = 2
 
-
-class LengthError(Exception):
-    pass
-
-
-class CRCError(Exception):
-    pass
-
-
-def crc(data):
-    """
-    Create cyclic redundancy check
-    """
-    s = 0
-    for c in data:
-        s += ord(c)
-    return struct.pack('>H', s)
-
-
-def check_crc(data):
-    """
-    Cyclic redundancy check
-
-    Args:
-        data: variable that saves the checksum
-    Raises:
-        CRCError: Checksum incorrect
-    """
-    csum = data[:2]
-    payload = data[2:]
-    if csum != crc(payload):
-        raise CRCError
-    return payload
-
-
-def check_stream_crc(head, data):
-    """
-    Cyclic redundancy check for streaming
-
-    Args:
-        head: header data of a packet
-        data: payload of a packet
-    """
-    csum = (head[0] << 8) + head[1]
-    return csum == sum(head[2:] + data)
+NAK = mkcmd(160, '')
 
 
 class DAQ:
-    def __init__(self, port):
+    def __init__(self, port, debug=False):
         """Class constructor"""
         self.port = port
+        self.debug = debug
+        self.simulate = (port == 'sim')
+
         self.measuring = False
         self.gain = 0
         self.pinput = 1
         self.open()
 
         info = self.get_info()
-        self.vHW = 'm' if info[0] == 1 else 's'
-        self.gains, self.offset = self.get_cal()
-        self.dacGain, self.dacOffset = self.get_dac_cal()
+        self.hw_ver = 'm' if info[0] == 1 else 's'
+        self.gains, self.offsets = self.get_cal()
+        self.dac_gain, self.dac_offset = self.get_dac_cal()
 
     def open(self):
         """Open the serial port"""
-        self.ser = serial.Serial(self.port, BAUDS, timeout=1)
-        self.ser.setRTS(0)
-        time.sleep(2)
+        if self.simulate:
+            self.ser = DAQSimulator(self.port, BAUDS, timeout=1)
+        else: 
+            self.ser = serial.Serial(self.port, BAUDS, timeout=1)
+            self.ser.setRTS(0)
+            time.sleep(2)
 
     def close(self):
         """Close the serial port"""
         self.ser.close()
 
-    def send_command(self, cmd, ret_fmt, debug=False):
+    def send_command(self, cmd, ret_fmt):
         """Build a command packet, send it to the openDAQ and process the
         response
 
         Args:
             cmd: Command ID
             ret_fmt: Payload format using python 'struct' format characters
-            debug: Toggle debug mode ON/OFF
         Returns:
             Command ID and arguments of the response
         Raises:
@@ -118,12 +81,12 @@ class DAQ:
             self.stop()
 
         # Add 'command' and 'length' fields to the format string
-        fmt = '>bb' + ret_fmt
+        fmt = '!BB' + ret_fmt
         ret_len = 2 + struct.calcsize(fmt)
         packet = crc(cmd) + cmd
         self.ser.write(packet)
         ret = self.ser.read(ret_len)
-        if debug:
+        if self.debug:
             print 'Command:  ',
             for c in packet:
                 print '%02X' % ord(c),
@@ -132,11 +95,18 @@ class DAQ:
             for c in ret:
                 print '%02X' % ord(c),
             print
-        if len(ret) != ret_len:
-            raise LengthError
+
+        if ret == NAK:
+            raise IOError("NAK response received")
+
         data = struct.unpack(fmt, check_crc(ret))
+
+        if len(ret) != ret_len:
+            raise LengthError("Bad packet length %d (it should be %d)" %
+                              (len(ret), ret_len))
         if data[1] != ret_len-4:
-            raise LengthError
+            raise LengthError("Bad body length %d (it should be %d)" %
+                              (ret_len-4, data[1]))
         # Strip 'command' and 'length' values from returned data
         return data[2:]
 
@@ -146,15 +116,7 @@ class DAQ:
         Returns:
             [hardware version, firmware version, device ID number]
         """
-        return self.send_command('\x27\x00', 'bbI')
-
-    def get_vHW(self):
-        """Get the hardware version
-
-        Returns:
-            Hardware version
-        """
-        return self.vHW
+        return self.send_command('\x27\x00', 'BBI')
 
     def read_adc(self):
         """Read data from ADC and return the raw value
@@ -173,10 +135,10 @@ class DAQ:
         """
         value = self.send_command('\x01\x00', 'h')[0]
         # Raw value to voltage->
-        index = self.gain + 1 if self.vHW == 'm' else self.pinput
+        index = self.gain + 1 if self.hw_ver == 'm' else self.pinput
         value *= self.gains[index]
-        value = -value/1e5 if self.vHW == 'm' else value/1e4
-        value = (value + self.offset[index])/1e3
+        value = -value/1e5 if self.hw_ver == 'm' else value/1e4
+        value = (value + self.offsets[index])/1e3
         return value
 
     def conf_adc(self, pinput, ninput=0, gain=0, nsamples=20):
@@ -190,13 +152,13 @@ class DAQ:
         """
         self.gain = gain
 
-        if self.vHW == 's' and ninput != 0:
+        if self.hw_ver == 's' and ninput != 0:
             self.pinput = (pinput - 1)/2 + 9
         else:
             self.pinput = pinput
 
-        cmd = struct.pack('BBBBBB', 2, 4, pinput, ninput, gain, nsamples)
-        return self.send_command(cmd, 'hBBBB')
+        cmd = struct.pack('!BBBBBB', 2, 4, pinput, ninput, gain, nsamples)
+        self.send_command(cmd, 'hBBBB')
 
     def enable_crc(self, on):
         """Enable/Disable the cyclic redundancy check
@@ -204,8 +166,8 @@ class DAQ:
         Args:
             on: Enable CRC
         """
-        cmd = struct.pack('BBB', 55, 1, on)
-        return self.send_command(cmd, 'B')[0]
+        cmd = struct.pack('!BBB', 55, 1, on)
+        self.send_command(cmd, 'B')[0]
 
     def set_led(self, color):
         """Set LED color
@@ -217,8 +179,8 @@ class DAQ:
         """
         if not 0 <= color <= 3:
             raise ValueError('Invalid color number')
-        cmd = struct.pack('BBB', 18, 1, color)
-        return self.send_command(cmd, 'B')[0]
+        cmd = struct.pack('!BBB', 18, 1, color)
+        self.send_command(cmd, 'B')[0]
 
     def set_analog(self, volts):
         """Set DAC output voltage. Device calibration values are taken into
@@ -236,17 +198,17 @@ class DAQ:
         """
         value = int(round(volts*1000))
 
-        if self.vHW == 'm' and not -4096 <= value < 4096:
+        if self.hw_ver == 'm' and not -4096 <= value < 4096:
             raise ValueError('DAC voltage out of range')
-        elif self.vHW == 's' and not 0 <= value < 4096:
+        elif self.hw_ver == 's' and not 0 <= value < 4096:
             raise ValueError('DAC voltage out of range')
 
-        data = 2*(value * self.dacGain/1000.0 + self.dacOffset + 4096)
-        if self.vHW == 's':
+        data = 2*(value * self.dac_gain/1000.0 + self.dac_offset + 4096)
+        if self.hw_ver == 's':
             data = max(0, min(data, 32767))  # clamp value
 
-        cmd = struct.pack('>BBh', 24, 2, data)
-        return self.send_command(cmd, 'h')[0]
+        cmd = struct.pack('!BBh', 24, 2, data)
+        self.send_command(cmd, 'h')[0]
 
     def set_dac(self, raw):
         """Set DAC output (binary value)
@@ -260,8 +222,8 @@ class DAQ:
         if not 0 < value < 16384:
             raise ValueError('DAC value out of range')
 
-        cmd = struct.pack('>BBH', 24, 2, value)
-        return self.send_command(cmd, 'h')[0]
+        cmd = struct.pack('!BBH', 24, 2, value)
+        self.send_command(cmd, 'h')[0]
 
     def set_port_dir(self, output):
         """Configure all PIO directions
@@ -269,8 +231,8 @@ class DAQ:
         Args:
             output: Port direction byte (bits: 0:input, 1:output)
         """
-        cmd = struct.pack('BBB', 9, 1, output)
-        return self.send_command(cmd, 'B')[0]
+        cmd = struct.pack('!BBB', 9, 1, output)
+        self.send_command(cmd, 'B')[0]
 
     def set_port(self, value):
         """Write all PIO values
@@ -278,8 +240,8 @@ class DAQ:
         Args:
             value: Port output byte (bits: 0:low, 1:high)
         """
-        cmd = struct.pack('BBB', 7, 1, value)
-        return self.send_command(cmd, 'B')[0]
+        cmd = struct.pack('!BBB', 7, 1, value)
+        self.send_command(cmd, 'B')[0]
 
     def set_pio_dir(self, number, output):
         """Configure PIO direction
@@ -293,8 +255,8 @@ class DAQ:
         if not 1 <= number <= 6:
             raise ValueError('Invalid DIO number')
 
-        cmd = struct.pack('BBBB', 5, 2, number,  int(bool(output)))
-        return self.send_command(cmd, 'BB')
+        cmd = struct.pack('!BBBB', 5, 2, number,  int(bool(output)))
+        self.send_command(cmd, 'BB')
 
     def set_pio(self, number, value):
         """Write DIO output
@@ -308,8 +270,8 @@ class DAQ:
         if not 1 <= number <= 6:
             raise ValueError('Invalid PIO number')
 
-        cmd = struct.pack('BBBB', 3, 2, number, int(bool(value)))
-        return self.send_command(cmd, 'BB')
+        cmd = struct.pack('!BBBB', 3, 2, number, int(bool(value)))
+        self.send_command(cmd, 'BB')
 
     def init_counter(self, edge):
         """Initialize the edge counter
@@ -317,8 +279,8 @@ class DAQ:
         Args:
             edge: high-to-low (0) or low-to-high (1)
         """
-        cmd = struct.pack('>BBB', 41, 1, 1)
-        return self.send_command(cmd, 'B')[0]
+        cmd = struct.pack('!BBB', 41, 1, 1)
+        self.send_command(cmd, 'B')[0]
 
     def get_counter(self, reset):
         """Get the counter value
@@ -326,7 +288,7 @@ class DAQ:
         Args:
             reset: reset the counter after reading
         """
-        cmd = struct.pack('>BBB', 42, 1, reset)
+        cmd = struct.pack('!BBB', 42, 1, reset)
         return self.send_command(cmd, 'H')[0]
 
     def init_capture(self, period):
@@ -335,7 +297,7 @@ class DAQ:
         Args:
             period: period of the wave (microseconds)
         """
-        cmd = struct.pack('>BBH', 14, 2, period)
+        cmd = struct.pack('!BBH', 14, 2, period)
         return self.send_command(cmd, 'H')[0]
 
     def stop_capture(self):
@@ -351,7 +313,7 @@ class DAQ:
         Returns:
             Period length in microseconds
         """
-        cmd = struct.pack('>BBB', 16, 1, mode)
+        cmd = struct.pack('!BBB', 16, 1, mode)
         return self.send_command(cmd, 'BH')
 
     def init_encoder(self, resolution):
@@ -360,7 +322,7 @@ class DAQ:
         Args:
             resolution: Maximum number of ticks per round [0:65535]
         """
-        cmd = struct.pack('>BBB', 50, 1, resolution)
+        cmd = struct.pack('!BBB', 50, 1, resolution)
         return self.send_command(cmd, 'B')[0]
 
     def get_encoder(self):
@@ -378,7 +340,7 @@ class DAQ:
             duty: High time of the signal [0:1023]
             period: Frecuency of the signal in microseconds [0:65535]
         """
-        cmd = struct.pack('>BBHH', 10, 4, duty, period)
+        cmd = struct.pack('!BBHH', 10, 4, duty, period)
         return self.send_command(cmd, 'HH')
 
     def stop_pwm(self):
@@ -400,7 +362,7 @@ class DAQ:
             Gain (*100000[M] or *10000[S])
             Offset
         """
-        cmd = struct.pack('>BBB', 36, 1, gain_id)
+        cmd = struct.pack('!BBB', 36, 1, gain_id)
         return self.send_command(cmd, 'BHh')
 
     def get_cal(self):
@@ -415,7 +377,7 @@ class DAQ:
         """
         gains = []
         offsets = []
-        _range = 6 if self.vHW == "m" else 17
+        _range = 6 if self.hw_ver == "m" else 17
         for i in range(_range):
             gain_id, gain, offset = self.__get_calibration(i)
             gains.append(gain)
@@ -442,7 +404,7 @@ class DAQ:
             gain: Gain multiplied by 100000 ([M]) or 10000 ([S])
             offset: Offset raw value (-32768 to 32768)
         """
-        cmd = struct.pack('>BBBHh', 37, 5, gain_id, gain, offset)
+        cmd = struct.pack('!BBBHh', 37, 5, gain_id, gain, offset)
         return self.send_command(cmd, 'BHh')
 
     def set_cal(self, gains, offsets, flag):
@@ -496,9 +458,9 @@ class DAQ:
             raise ValueError('Invalid number')
         if type(mode) == str and mode in INPUT_MODES:
             mode = INPUT_MODES.index(mode)
-        cmd = struct.pack('>BBBBBBBB', 22, 6, number, mode,
+        cmd = struct.pack('!BBBBBBBB', 22, 6, number, mode,
                           pinput, ninput, gain, nsamples)
-        return self.send_command(cmd, 'BBBBBB')
+        return self.send_command(cmd, '!BBBBBB')
 
     def setup_channel(self, number, npoints, continuous=True):
         """
@@ -514,7 +476,7 @@ class DAQ:
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
-        cmd = struct.pack('>BBBHb', 32, 4, number, npoints, int(continuous))
+        cmd = struct.pack('!BBBHb', 32, 4, number, npoints, int(continuous))
         return self.send_command(cmd, 'BHB')
 
     def destroy_channel(self, number):
@@ -727,26 +689,16 @@ class DAQ:
         channel.append(self.header[4]-1)
         return 1
 
-    def setVHW(self, v):
-        """
-        Choose the hardware version
-
-        Args:
-            v: hardware version
-            (m: openDAQ[M], s: openDAQ[S])
-        """
-        self.vHW = v
-
     def set_DAC_gain_offset(self, gain, offset):
         """
         Set DAC gain and offset
 
         Args:
-            g: DAC gain
-            o: DAC offset
+            gain: DAC gain
+            offset: DAC offset
         """
-        self.dacGain = gain
-        self.dacOffset = offset
+        self.dac_gain = gain
+        self.dac_offset = offset
 
     def set_gains_offsets(self, gains, offsets):
         """
@@ -757,7 +709,7 @@ class DAQ:
             offsets: Offsets
         """
         self.gains = gains
-        self.offset = offsets
+        self.offsets = offsets
 
     def set_id(self, id):
         """

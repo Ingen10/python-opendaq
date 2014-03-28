@@ -19,5 +19,6 @@ class TestCommon(unittest.TestCase):
         assert str2hex('\x12\x34\x56') == '12 34 56'
 
     def test_mkcmd(self):
+        assert str2hex(mkcmd(160, '')) == '00 a0 a0 00'
         assert str2hex(mkcmd(18, 'b', 1)) == '00 14 12 01 01'
-        assert str2hex(mkcmd(100, 'bH', 32, 1000)) == '01 73 64 04 20 03 e8'
+        assert str2hex(mkcmd(100, 'bH', 32, 1000)) == '01 72 64 03 20 03 e8'

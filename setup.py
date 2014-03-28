@@ -33,7 +33,7 @@ setup(
     packages=['opendaq'],
     package_dir={'opendaq': 'opendaq'},
     include_package_data=True,
-    install_requires=['pyserial'],
+    install_requires=['pyserial==2.7'],
     license='LGPL',
     zip_safe=False,
     test_suite='tests',
