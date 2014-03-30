@@ -54,9 +54,9 @@ def check_crc(data):
     Cyclic redundancy check
 
     Args:
-        data: variable that saves the checksum
+        data: Checksum of the data packet
     Raises:
-        CRCError: Checksum incorrect
+        CRCError: Checksum was incorrect
     """
     csum = data[:2]
     payload = data[2:]
@@ -67,7 +67,7 @@ def check_crc(data):
 
 def check_stream_crc(head, data):
     """
-    Cyclic redundancy check for streaming
+    Cyclic redundancy check for stream packets
 
     Args:
         head: header data of a packet
@@ -92,7 +92,8 @@ class DAQ:
         self.dacGain, self.dacOffset = self.get_dac_cal()
 
     def open(self):
-        """Open the serial port"""
+        """Open the serial port
+        Configure serial port to be opened."""
         self.ser = serial.Serial(self.port, BAUDS, timeout=1)
         self.ser.setRTS(0)
         time.sleep(2)
@@ -180,13 +181,20 @@ class DAQ:
         return value
 
     def conf_adc(self, pinput, ninput=0, gain=0, nsamples=20):
-        """ Configure the ADC
+        """ Configure the analog-to-digital converter.
+
+        Get the parameters for configure the analog-to-digital
+        converter. 
 
         Args:
-            pinput: Positive input (1-8)
-            ninput: Negative input (0, 5, 6, 7, 8, 25)
-            gain: Analog gain (0:x1/3, 1:x1, 2:x2, 3:x10, 4:x100)
-            nsamples: Number of samples per point (1-255)
+            pinput: Positive input [1:8]
+            ninput: Negative input
+                openDAQ[M]= [0, 5, 6, 7, 8, 25]
+                openDAQ[S]= [0,1:8] (must be 0 or pinput-1)
+            gain: Analog gain
+                openDAQ[M]= [0:4] (x1/3, x1, x2, x10, x100)
+                openDAQ[S]= [0:7] (x1,x2,x4,x5,x8,x10,x16,x20)
+            nsamples: Number of samples per data point (1-255)
         """
         self.gain = gain
 
@@ -208,7 +216,8 @@ class DAQ:
         return self.send_command(cmd, 'B')[0]
 
     def set_led(self, color):
-        """Set LED color
+        """Choose LED status.
+        LED switch on (green, red or orange) or switch off.
 
         Args:
             color: LED color (0:off, 1:green, 2:red, 3:orange)
@@ -221,15 +230,16 @@ class DAQ:
         return self.send_command(cmd, 'B')[0]
 
     def set_analog(self, volts):
-        """Set DAC output voltage. Device calibration values are taken into
-        account
+        """et DAC output voltage (millivolts value).
+        Set the output voltage value between the voltage hardware limits.
+        Device calibration values are used for the calculation.
 
         openDAQ[M] range: -4.096 V to +4.096 V
 
         openDAQ[S] range: 0 V to +4.096 V
 
         Args:
-            volts: New DAC output value in volts
+            volts: New DAC output value in millivolts
         Raises:
             ValueError: DAC voltage out of range
 
@@ -251,8 +261,10 @@ class DAQ:
     def set_dac(self, raw):
         """Set DAC output (binary value)
 
+        Set the raw value into DAC without data conversion.
+        
         Args:
-            raw: Raw binary value
+            raw: RAW binary ADC data value.
         Raises:
             ValueError: DAC voltage out of range
         """
@@ -264,17 +276,18 @@ class DAQ:
         return self.send_command(cmd, 'h')[0]
 
     def set_port_dir(self, output):
-        """Configure all PIO directions
+        """Configure all PIOs directions.
+        Set the direction of all D1-D6 terminals.
 
         Args:
-            output: Port direction byte (bits: 0:input, 1:output)
+            output: Port directions byte (bits: 0:input, 1:output)
         """
         cmd = struct.pack('BBB', 9, 1, output)
         return self.send_command(cmd, 'B')[0]
 
     def set_port(self, value):
         """Write all PIO values
-
+        Set the value of all D1-D6 terminals.
         Args:
             value: Port output byte (bits: 0:low, 1:high)
         """
@@ -283,27 +296,29 @@ class DAQ:
 
     def set_pio_dir(self, number, output):
         """Configure PIO direction
+        Set the direction of a specific PIO terminal (D1-D6).
 
         Args:
-            number: DIO number (1-6)
-            output: DIO direction (0 input, 1 output)
+            number: PIO number [1:6]
+            output: PIO direction (0 input, 1 output)
         Raises:
-            ValueError: Invalid DIO number
+            ValueError: Invalid PIO number
         """
         if not 1 <= number <= 6:
-            raise ValueError('Invalid DIO number')
+            raise ValueError('Invalid PIO number')
 
         cmd = struct.pack('BBBB', 5, 2, number,  int(bool(output)))
         return self.send_command(cmd, 'BB')
 
     def set_pio(self, number, value):
-        """Write DIO output
+        """Write PIO output value
+        Set the value of the PIO terminal (0: low, 1: high).
 
         Args:
-            number: DIO number (1-6)
-            value: digital value
+            number: PIO number (1-6)
+            value: digital value (0: low, 1: high)
         Raises:
-            ValueError: Invalid DIO number
+            ValueError: Invalid PIO number
         """
         if not 1 <= number <= 6:
             raise ValueError('Invalid PIO number')
@@ -312,8 +327,9 @@ class DAQ:
         return self.send_command(cmd, 'BB')
 
     def init_counter(self, edge):
-        """Initialize the edge counter
-
+        """Initialize the edge Counter
+        Configure which edge increments the count:
+        Low-to-High (1) or High-to-Low (0).
         Args:
             edge: high-to-low (0) or low-to-high (1)
         """
@@ -324,38 +340,41 @@ class DAQ:
         """Get the counter value
 
         Args:
-            reset: reset the counter after reading
+            reset: reset the counter after perform reading (>0: reset)
         """
         cmd = struct.pack('>BBB', 42, 1, reset)
         return self.send_command(cmd, 'H')[0]
 
     def init_capture(self, period):
-        """Start capture mode around a given period
+        """Start Capture mode around a given period
 
         Args:
-            period: period of the wave (microseconds)
+            period: estimated period of the wave (in microseconds)
         """
         cmd = struct.pack('>BBH', 14, 2, period)
         return self.send_command(cmd, 'H')[0]
 
     def stop_capture(self):
-        """Stop capture mode
+        """Stop Capture mode
         """
         self.send_command('\x0F\x00', '')
 
     def get_capture(self, mode):
-        """Get current period length
-
+        """Get Capture reading for the period length
+        Low cycle, High cycle or Full period.
         Args:
-            mode: Period length (0: Low cycle, 1: High cycle, 2: Full period)
+            mode: Period length
+                0: Low cycle
+                1: High cycle
+                2: Full period
         Returns:
-            Period length in microseconds
+            Period: The period length in microseconds
         """
         cmd = struct.pack('>BBB', 16, 1, mode)
         return self.send_command(cmd, 'BH')
 
     def init_encoder(self, resolution):
-        """Start encoder function
+        """Start Encoder function
 
         Args:
             resolution: Maximum number of ticks per round [0:65535]
@@ -367,7 +386,7 @@ class DAQ:
         """Get current encoder relative position
 
         Returns:
-            Current encoder value
+            Position: The actual encoder value.
         """
         return self.send_command('\x34\x00', 'H')
 
@@ -375,8 +394,8 @@ class DAQ:
         """Start PWM output with a given period and duty cycle
 
         Args:
-            duty: High time of the signal [0:1023]
-            period: Frecuency of the signal in microseconds [0:65535]
+            duty: High time of the signal [0:1023](0 always low, 1023 always high)
+            period: Period of the signal (microseconds) [0:65535]
         """
         cmd = struct.pack('>BBHH', 10, 4, duty, period)
         return self.send_command(cmd, 'HH')
@@ -394,10 +413,10 @@ class DAQ:
 
         Args:
             gain_id: analog configuration
-            (1-6 for openDAQ [M])
-            (1-17 for openDAQ [S])
+            (1:6 for openDAQ [M])
+            (1:17 for openDAQ [S])
         Returns:
-            Gain (*100000[M] or *10000[S])
+            Gain (x100000[M] or x10000[S])
             Offset
         """
         cmd = struct.pack('>BBB', 36, 1, gain_id)
@@ -475,22 +494,44 @@ class DAQ:
     def conf_channel(
             self, number, mode, pinput=1, ninput=0, gain=1, nsamples=1):
         """
-        Configure a stream experiment (ANALOG, +IN, -IN, GAIN)
+        Configure a channel for a generic stream experiment.
+        (Stream/External/Burst).
 
         Args:
-            number: variable that defines the number of DataChannel
-            to assign. (1-4)
-            mode: variable that defines mode [0:5], 0 ANALOG_INPUT,
-            1 ANALOG_OUTPUT, 2 DIGITAL_INPUT, 3 DIGITAL_OUTPUT,
-            4 COUNTER_INPUT, 5 CAPTURE INPUT
-            pinput: variable that defines positive/SE analog input [1:8]
-            (default 5)
-            ninput: variable that defines negative analog input
-            [0 (GND), 25 (2.5V Vref), 5:8] (default 0)
-            gain: variable that defines gain multiplier [0:4]
-            (0 x(1/2), 1 x(1), 2 x(2, 3 x(10), 4 x(100) default(1))
-            nsamples: variable that defines number of samples per point
-            [1:255]
+            - number: Select a DataChannel number for this experiment
+            - mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE INPUT
+                
+            - pinput: Select Positive/SE analog input [1:8]
+            - ninput: Select Negative analog input:
+                * 0= GND
+                * 25= 2.5V Vref
+                * 5:8= Analog inputs A5-A8   
+                
+            - gain: Select PGA multiplier. 
+                In case of openDAQ [M]:
+                    0. x1/2
+                    1. x1
+                    2. x2
+                    3. x10
+                    4. x100    
+
+                In case of openDAQ [S]:
+                    0. x1
+                    1. x2
+                    2. x4
+                    3. x5
+                    4. x8
+                    5. x10
+                    6. x16
+                    7. x20    
+          
+            - nsamples: Number of samples to calculate the mean for each point [1:255].
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -505,12 +546,12 @@ class DAQ:
         Configure the experiment's number of points
 
         Args:
-            number: variable that defines the number of DataChannel
-            to assign
-            npoints: variable that defines the number of total points
+            number: Select a DataChannel number for this experiment
+            npoints: Total number of points for the experiment
             [0:65536] (0 indicates continuous acquisition)
-            continuous: variable that defines repetition mode [0:1]
-            0 continuous, 1 run once
+            continuous: Number of repeats [0:1]
+                0 continuous
+                1 run once
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -522,8 +563,8 @@ class DAQ:
         Delete Datachannel structure
 
         Args:
-            number: variable that defines the number of DataChannel to clear
-            [0:4] 0 reset all DataChannel
+            number: Number of DataChannel structure to clear
+            [0:4] (0: reset all DataChannels)
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -532,13 +573,12 @@ class DAQ:
 
     def create_stream(self, number, period):
         """
-        Create stream experiment
+        Create Stream experiment
 
         Args:
-            number: variable that defines the number of DataChannel to assign
-            [1:4]
-            period: variable that defines the period of the stream experiment
-            [1:65536]
+            number: Assign a DataChannel number for this experiment [1:4]
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -549,10 +589,10 @@ class DAQ:
 
     def create_burst(self, period):
         """
-        Create burst experiment
+        Create Burst experiment
 
         Args:
-            period: variable that defines the period of the burst experiment
+            period: Period of the burst experiment
             (microseconds) [100:65535]
         """
         cmd = struct.pack('>BBH', 21, 2, period)
@@ -560,12 +600,11 @@ class DAQ:
 
     def create_external(self, number, edge):
         """
-        Create external experiment
+        Create External experiment
 
         Args:
-            number: variable that defines the number of DataChannel to assign
-            [1:4]
-            edge: [0:1]
+            number: Assign a DataChannel number for this experiment [1:4]
+            edge: New data on rising (1) or falling (0) edges [0:1]
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -577,8 +616,8 @@ class DAQ:
         Load an array of values to preload DAC output
 
         Args:
-            data: variable that defines the data number [1:400]
-            offset: variable that defines the offset
+            data: Total number of data points [1:400]
+            offset: Offset for each value
         """
         cmd = struct.pack(
             '>bBh%dH' % len(data), 23, len(data) * 2 + 2, offset, *data)
@@ -586,14 +625,14 @@ class DAQ:
 
     def start(self):
         """
-        Start an automated measurement
+        Start all available experiments
         """
         self.send_command('\x40\x00', '')
         self.measuring = True
 
     def stop(self):
         """
-        Stop actual measurement
+        Stop all running experiments
         """
 
         self.measuring = False
@@ -607,7 +646,7 @@ class DAQ:
 
     def flush(self):
         """
-        Call ser.flushInput()
+        Flush internal buffers
         """
         self.ser.flushInput()
 
@@ -616,8 +655,14 @@ class DAQ:
         Flush stream data from buffer
 
         Args:
-           data: variable that defines the data
-           channel: variable that defines the channel
+           data:
+           channel: Experiment number
+
+        Returns:
+            0 if there is no incoming data.
+            1 if data stream was processed.
+            2 if no data stream received. Useful for debugging.
+           
         Raises:
            LengthError: An error ocurred
         """
@@ -672,9 +717,9 @@ class DAQ:
         """Get stream from serial connection
 
         Args:
-            data: variable that defines the data
-            channel: variable that defines the channel
-            callback: variable that defines the callback mode
+            data: Data buffer
+            channel: Experiment number
+            callback: Callback mode
 
         Returns:
             0 if there is not any incoming data.
@@ -727,16 +772,6 @@ class DAQ:
         channel.append(self.header[4]-1)
         return 1
 
-    def setVHW(self, v):
-        """
-        Choose the hardware version
-
-        Args:
-            v: hardware version
-            (m: openDAQ[M], s: openDAQ[S])
-        """
-        self.vHW = v
-
     def set_DAC_gain_offset(self, gain, offset):
         """
         Set DAC gain and offset
@@ -764,13 +799,13 @@ class DAQ:
         Identify openDAQ device
 
         Args:
-            id: variable that defines id number [000:999]
+            id: id number of the device [000:999]
         """
         cmd = struct.pack('>BBI', 39, 4, id)
         return self.send_command(cmd, 'bbI')
 
     def spi_config(self, cpol, cpha):
-        """Configure bit-bang SPI (clock properties)
+        """Bit-Bang SPI configure (clock properties)
 
         Args:
             cpol: Clock polarity (clock pin state when inactive)
@@ -784,7 +819,7 @@ class DAQ:
         return self.send_command(cmd, 'BB')
 
     def spi_setup(self, nbytes, sck=1, mosi=2, miso=3):
-        """Setup bit-bang SPI (PIO numbers to use)
+        """Bit-Bang SPI setup (PIO numbers to use)
 
         Args:
             nbytes: Number of bytes

@@ -1,11 +1,10 @@
 opendaq package
 ===============
 
-Submodules
-----------
 
 opendaq.common module
 ---------------------
+Common utils used in the rest of the modules.
 
 .. automodule:: opendaq.common
     :members:
@@ -14,6 +13,9 @@ opendaq.common module
 
 opendaq.daq module
 ------------------
+Main functions used to communicate with the device.
+See function_reference.rst for additional info.
+
 
 .. automodule:: opendaq.daq
     :members:
@@ -22,6 +24,8 @@ opendaq.daq module
 
 opendaq.serial_sim module
 -------------------------
+Serial port simulator used for debug and tests.
+
 
 .. automodule:: opendaq.serial_sim
     :members:
@@ -30,6 +34,8 @@ opendaq.serial_sim module
 
 opendaq.simulator module
 ------------------------
+Function simulator, used to run the tests.
+
 
 .. automodule:: opendaq.simulator
     :members:
