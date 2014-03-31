@@ -6,7 +6,7 @@ class TestDAQ(unittest.TestCase):
     def setUp(self):
         self.daq = DAQ('sim')
         self.sim = self.daq.ser
-    
+
     def tearDown(self):
         self.daq.close()
 

@@ -30,16 +30,40 @@ class LengthError(ValueError):
 
 
 def crc(data):
+    """Calculate cyclic redundancy check of a data package
+
+    Args:
+        data: Data package
+    """
     s = sum((ord(c) for c in data)) % 65536
     return struct.pack('!H', s)
 
 
 def check_crc(data):
+    """Check data package checksum
+
+    Args:
+        data: Data package to be validated
+    Raises:
+        CRCError: Checksum was incorrect
+    """
     csum = data[:2]
     payload = data[2:]
     if csum != crc(payload):
         raise CRCError
     return payload
+
+
+def check_stream_crc(head, data):
+    """
+    Cyclic redundancy check for stream packets
+
+    Args:
+        head: header data of a packet
+        data: payload of a packet
+    """
+    csum = (head[0] << 8) + head[1]
+    return csum == sum(head[2:] + data)
 
 
 def mkcmd(ncmd, fmt, *args):
