@@ -13,9 +13,10 @@ Contents:
 
    installation
    opendaq
+   function_reference
    
 
-Indices and tables
+Index and tables
 ==================
 
 * :ref:`genindex`
