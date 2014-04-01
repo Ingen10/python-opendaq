@@ -353,6 +353,10 @@ class DAQ:
         """
         return self.send_command('\x34\x00', 'H')
 
+    def stop_encoder(self):
+        """Stop PWM"""
+        self.send_command('\x33\x00', '')
+
     def init_pwm(self, duty, period):
         """Start PWM output with a given period and duty cycle
 
