@@ -253,9 +253,12 @@ class DAQ:
         Set the value of all D1-D6 terminals.
         Args:
             value: Port output byte (bits: 0:low, 1:high)
+        Returns:
+            Real value of the port. Output pin as fixed in value\
+                input pin refresh with current state.
         """
         cmd = struct.pack('!BBB', 7, 1, value)
-        self.send_command(cmd, 'B')[0]
+        return self.send_command(cmd, 'B')[0]
 
     def set_pio_dir(self, number, output):
         """Configure PIO direction
@@ -354,7 +357,7 @@ class DAQ:
         return self.send_command('\x34\x00', 'H')
 
     def stop_encoder(self):
-        """Stop PWM"""
+        """Stop encoder"""
         self.send_command('\x33\x00', '')
 
     def init_pwm(self, duty, period):
