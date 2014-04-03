@@ -13,7 +13,6 @@ Contents:
 
    installation
    opendaq
-   function_reference
    
 
 Index and tables
