@@ -192,6 +192,33 @@ class DAQ:
         cmd = struct.pack('!BBB', 18, 1, color)
         self.send_command(cmd, 'B')[0]
 
+    def volts_to_raw(self, volts):
+        """Convert a value in volts to a raw value.
+        Device calibration values are used for the calculation.
+
+        openDAQ[M] range: -4.096 V to +4.096 V
+        openDAQ[S] range: 0 V to +4.096 V
+
+        Args:
+            volts: value to convert to raw
+        Returns:
+            Raw value
+        Raises:
+            ValueError: DAC voltage out of range
+        """
+        value = int(round(volts*1000))
+
+        if self.hw_ver == 'm' and not -4096 <= value < 4096:
+            raise ValueError('DAC voltage out of range')
+        elif self.hw_ver == 's' and not 0 <= value < 4096:
+            raise ValueError('DAC voltage out of range')
+
+        data = 2*(value * self.dac_gain/1000.0 + self.dac_offset + 4096)
+        if self.hw_ver == 's':
+            data = max(0, min(data, 65535))  # clamp value
+
+        return data
+
     def set_analog(self, volts):
         """Set DAC output voltage (millivolts value).
         Set the output voltage value between the voltage hardware limits.
@@ -205,21 +232,9 @@ class DAQ:
             volts: New DAC output value in millivolts
         Raises:
             ValueError: DAC voltage out of range
-
         """
-        value = int(round(volts*1000))
-
-        if self.hw_ver == 'm' and not -4096 <= value < 4096:
-            raise ValueError('DAC voltage out of range')
-        elif self.hw_ver == 's' and not 0 <= value < 4096:
-            raise ValueError('DAC voltage out of range')
-
-        data = 2*(value * self.dac_gain/1000.0 + self.dac_offset + 4096)
-        if self.hw_ver == 's':
-            data = max(0, min(data, 32767))  # clamp value
-
-        cmd = struct.pack('!BBh', 24, 2, data)
-        self.send_command(cmd, 'h')[0]
+        data = self.volts_to_raw(volts)
+        self.set_dac(data)
 
     def set_dac(self, raw):
         """Set DAC output (binary value)
@@ -232,8 +247,9 @@ class DAQ:
             ValueError: DAC voltage out of range
         """
         value = int(round(raw))
-        if not 0 < value < 16384:
-            raise ValueError('DAC value out of range')
+        if (self. hw_ver == 'm' and not 0 <= value < 16384) or (
+                self. hw_ver == 's' and not 0 <= value < 65536):
+                    raise ValueError('DAC value out of range')
 
         cmd = struct.pack('!BBH', 24, 2, value)
         self.send_command(cmd, 'h')[0]
@@ -589,14 +605,22 @@ class DAQ:
 
     def load_signal(self, data, offset):
         """
-        Load an array of values to preload DAC output
+        Load an array of values in volts to preload DAC output
 
         Args:
             data: Total number of data points [1:400]
             offset: Offset for each value
         """
+        values = []
+        for volts in data:
+            raw = self.volts_to_raw(volts)
+            if self.hw_ver == "s":
+                raw *= 2
+
+            values.append(raw)
+
         cmd = struct.pack(
-            '!bBh%dH' % len(data), 23, len(data) * 2 + 2, offset, *data)
+            '!bBh%dH' % len(values), 23, len(values) * 2 + 2, offset, *values)
         return self.send_command(cmd, 'Bh')
 
     def start(self):
