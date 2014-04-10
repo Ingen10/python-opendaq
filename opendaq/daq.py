@@ -157,8 +157,30 @@ class DAQ:
             gain: Analog gain
                 openDAQ[M]= [0:4] (x1/3, x1, x2, x10, x100)
                 openDAQ[S]= [0:7] (x1,x2,x4,x5,x8,x10,x16,x20)
-            nsamples: Number of samples per data point (1-255)
+            nsamples: Number of samples per data point [0-255)
+        Raises:
+            ValueError: Values out of range
         """
+        if not 1 <= pinput <= 8:
+            raise ValueError("positive input out of range")
+
+        if self.hw_ver == 'm' and ninput not in [0, 5, 6, 7, 8, 25]:
+            raise ValueError("negative input out of range")
+
+        if self.hw_ver == 's' and ninput != 0 and (
+            pinput % 2 == 0 and ninput != pinput - 1
+                or pinput % 2 != 0 and ninput != pinput + 1):
+                    raise ValueError("negative input out of range")
+
+        if self.hw_ver == 'm' and not 0 <= gain <= 4:
+            raise ValueError("gain out of range")
+
+        if self.hw_ver == 's' and not 0 <= gain <= 7:
+            raise ValueError("gain out of range")
+
+        if not 0 <= nsamples < 255:
+            raise ValueError("samples number out of range")
+
         self.gain = gain
 
         if self.hw_ver == 's' and ninput != 0:
@@ -174,7 +196,12 @@ class DAQ:
 
         Args:
             on: Enable CRC
+        Raises:
+            ValueError: on value out of range
         """
+        if on not in [0, 1]:
+            raise ValueError("on value out of range")
+
         cmd = struct.pack('!BBB', 55, 1, on)
         self.send_command(cmd, 'B')[0]
 
@@ -192,7 +219,7 @@ class DAQ:
         cmd = struct.pack('!BBB', 18, 1, color)
         self.send_command(cmd, 'B')[0]
 
-    def volts_to_raw(self, volts):
+    def __volts_to_raw(self, volts):
         """Convert a value in volts to a raw value.
         Device calibration values are used for the calculation.
 
@@ -233,7 +260,12 @@ class DAQ:
         Raises:
             ValueError: DAC voltage out of range
         """
-        data = self.volts_to_raw(volts)
+        if self.hw_ver == 'm' and not -4096 <= volts < 4096:
+            raise ValueError('DAC voltage out of range')
+        elif self.hw_ver == 's' and not 0 <= volts < 4096:
+            raise ValueError('DAC voltage out of range')
+
+        data = self.__volts_to_raw(volts)
         self.set_dac(data)
 
     def set_dac(self, raw):
@@ -260,7 +292,12 @@ class DAQ:
 
         Args:
             output: Port directions byte (bits: 0:input, 1:output)
+        Raises:
+            ValueError: output value out of range
         """
+        if not 0 <= output < 64:
+            raise ValueError("output value out of range")
+
         cmd = struct.pack('!BBB', 9, 1, output)
         self.send_command(cmd, 'B')[0]
 
@@ -272,7 +309,12 @@ class DAQ:
         Returns:
             Real value of the port. Output pin as fixed in value\
                 input pin refresh with current state.
+        Raises:
+            ValueError: port output byte out of range
         """
+        if not 0 <= value < 64:
+            raise ValueError("port output byte out of range")
+
         cmd = struct.pack('!BBB', 7, 1, value)
         return self.send_command(cmd, 'B')[0]
 
@@ -288,6 +330,9 @@ class DAQ:
         """
         if not 1 <= number <= 6:
             raise ValueError('Invalid PIO number')
+
+        if output not in [0, 1]:
+            raise ValueError("PIO direction out of range")
 
         cmd = struct.pack('!BBBB', 5, 2, number,  int(bool(output)))
         self.send_command(cmd, 'BB')
@@ -305,6 +350,9 @@ class DAQ:
         if not 1 <= number <= 6:
             raise ValueError('Invalid PIO number')
 
+        if value not in [0, 1]:
+            raise ValueError("digital value out of range")
+
         cmd = struct.pack('!BBBB', 3, 2, number, int(bool(value)))
         self.send_command(cmd, 'BB')
 
@@ -314,8 +362,13 @@ class DAQ:
         Low-to-High (1) or High-to-Low (0).
         Args:
             edge: high-to-low (0) or low-to-high (1)
+        Raises:
+            ValueError: edge value out of range
         """
-        cmd = struct.pack('!BBB', 41, 1, 1)
+        if edge not in [0, 1]:
+            raise ValueError("edge value out of range")
+
+        cmd = struct.pack('!BBB', 41, 1, edge)
         self.send_command(cmd, 'B')[0]
 
     def get_counter(self, reset):
@@ -323,7 +376,12 @@ class DAQ:
 
         Args:
             reset: reset the counter after perform reading (>0: reset)
+        Raises:
+            ValueError: reset value out of range
         """
+        if not 0 <= reset <= 255:
+            raise ValueError("reset value out of range")
+
         cmd = struct.pack('!BBB', 42, 1, reset)
         return self.send_command(cmd, 'H')[0]
 
@@ -332,7 +390,12 @@ class DAQ:
 
         Args:
             period: estimated period of the wave (in microseconds)
+        Raises:
+            ValueError: period out of range
         """
+        if not 0 <= period <= 65535:
+            raise ValueError("period out of range")
+
         cmd = struct.pack('!BBH', 14, 2, period)
         return self.send_command(cmd, 'H')[0]
 
@@ -351,7 +414,12 @@ class DAQ:
                 2: Full period
         Returns:
             Period: The period length in microseconds
+        Raises:
+            ValueError: mode value out of range
         """
+        if mode not in [0, 1, 2]:
+            raise ValueError("mode value out of range")
+
         cmd = struct.pack('!BBB', 16, 1, mode)
         return self.send_command(cmd, 'BH')
 
@@ -360,7 +428,12 @@ class DAQ:
 
         Args:
             resolution: Maximum number of ticks per round [0:65535]
+        Raises:
+            ValueError: resolution value out of range
         """
+        if not 0 <= resolution <= 65535:
+            raise ValueError("resolution value out of range")
+
         cmd = struct.pack('!BBB', 50, 1, resolution)
         return self.send_command(cmd, 'B')[0]
 
@@ -383,7 +456,15 @@ class DAQ:
             duty: High time of the signal [0:1023](0 always low,\
                  1023 always high)
             period: Period of the signal (microseconds) [0:65535]
+        Raises:
+            ValueError: Values out of range
         """
+        if not 0 <= duty < 1024:
+            raise ValueError("duty value out of range")
+
+        if not 0 <= period <= 65535:
+            raise ValueError("period value out of range")
+
         cmd = struct.pack('!BBHH', 10, 4, duty, period)
         return self.send_command(cmd, 'HH')
 
@@ -400,12 +481,18 @@ class DAQ:
 
         Args:
             gain_id: analog configuration
-            (1:6 for openDAQ [M])
-            (1:17 for openDAQ [S])
+            (0:5 for openDAQ [M])
+            (0:16 for openDAQ [S])
         Returns:
             Gain (x100000[M] or x10000[S])
             Offset
+        Raises:
+            ValueError: gain_id out of range
         """
+        if (self.hw_ver == 'm' and not 0 <= gain_id <= 5) or (
+                self.hw_ver == 's' and not 0 <= gain_id <= 16):
+                    raise ValueError("gain_id out of range")
+
         cmd = struct.pack('!BBB', 36, 1, gain_id)
         return self.send_command(cmd, 'BHh')
 
@@ -447,7 +534,19 @@ class DAQ:
             gain_id: ID of the analog configuration setup
             gain: Gain multiplied by 100000 ([M]) or 10000 ([S])
             offset: Offset raw value (-32768 to 32768)
+        Raises:
+            ValueError: Values out of range
         """
+        if (self.hw_ver == 'm' and not 0 <= gain_id <= 5) or (
+                self.hw_ver == 's' and not 0 <= gain_id <= 16):
+                    raise ValueError("gain_id out of range")
+
+        if not 0 <= gain < 65536:
+            raise ValueError("gain out of range")
+
+        if not -32768 <= offset < 32768:
+            raise ValueError("offset out of range")
+
         cmd = struct.pack('!BBBHh', 37, 5, gain_id, gain, offset)
         return self.send_command(cmd, 'BHh')
 
@@ -459,7 +558,17 @@ class DAQ:
             gains: Gain multiplied by 100000 ([M]) or 10000 ([S])
             offsets: Offset raw value (-32768 to 32768)
             flag: 'M', 'SE' or 'DE'
+        Raises:
+            ValueError: Values out of range
         """
+        for gain in gains:
+            if not 0 <= gain < 65536:
+                raise ValueError("gain out of range")
+
+        for offset in offsets:
+            if not -32768 <= offset < 32768:
+                raise ValueError("offset out of range")
+
         if flag == 'M':
             for i in range(1, 6):
                 self.__set_calibration(i, gains[i-1], offsets[i-1])
@@ -479,7 +588,15 @@ class DAQ:
         Args:
             gain: Gain multiplied by 100000 ([M]) or 10000 ([S])
             ofset: Offset raw value (-32768 to 32678)
+        Raises:
+            ValueError: Values out of range
         """
+        if not 0 <= gain < 65536:
+            raise ValueError("gain out of range")
+
+        if not -32768 <= offset < 32768:
+            raise ValueError("offset out of range")
+
         self.__set_calibration(0, gain, offset)
 
     def conf_channel(
@@ -500,9 +617,8 @@ class DAQ:
 
             - pinput: Select Positive/SE analog input [1:8]
             - ninput: Select Negative analog input:
-                * 0= GND
-                * 25= 2.5V Vref
-                * 5:8= Analog inputs A5-A8
+                openDAQ[M]= [0, 5, 6, 7, 8, 25]
+                openDAQ[S]= [0,1:8] (must be 0 or pinput-1)
 
             - gain: Select PGA multiplier.
                 In case of openDAQ [M]:
@@ -523,12 +639,42 @@ class DAQ:
                     7. x20
 
             - nsamples: Number of samples to calculate the mean for each point\
-                 [1:255].
+                 [0:255].
+        Raises:
+            ValueError: Values out of range
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
-        if type(mode) == str and mode in INPUT_MODES:
-            mode = INPUT_MODES.index(mode)
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if type(mode) == str:
+            if mode in INPUT_MODES:
+                mode = INPUT_MODES.index(mode)
+            else:
+                raise ValueError('Invalid mode')
+
+        if not 0 <= pinput <= 8:
+            raise ValueError('pinput out of range')
+
+        if self.hw_ver == 'm' and ninput not in [0, 5, 6, 7, 8, 25]:
+            raise ValueError("negative input out of range")
+
+        if self.hw_ver == 's' and ninput != 0 and (
+            pinput % 2 == 0 and ninput != pinput - 1
+                or pinput % 2 != 0 and ninput != pinput + 1):
+                    raise ValueError("negative input out of range")
+
+        if self.hw_ver == 'm' and not 0 <= gain <= 4:
+            raise ValueError("gain out of range")
+
+        if self.hw_ver == 's' and not 0 <= gain <= 7:
+            raise ValueError("gain out of range")
+
+        if not 0 <= nsamples < 255:
+            raise ValueError("samples number out of range")
+
         cmd = struct.pack('!BBBBBBBB', 22, 6, number, mode,
                           pinput, ninput, gain, nsamples)
         return self.send_command(cmd, 'BBBBBB')
@@ -544,9 +690,18 @@ class DAQ:
             continuous: Number of repeats [0:1]
                 0 continuous
                 1 run once
+        Raises:
+            ValueError: Values out of range
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if continuous not in [0, 1]:
+            raise ValueError("continuous value out of range")
+
         cmd = struct.pack('!BBBHb', 32, 4, number, npoints, int(continuous))
         return self.send_command(cmd, 'BHB')
 
@@ -557,6 +712,8 @@ class DAQ:
         Args:
             number: Number of DataChannel structure to clear
             [0:4] (0: reset all DataChannels)
+        Raises:
+            ValueError: Invalid number
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -571,6 +728,8 @@ class DAQ:
             number: Assign a DataChannel number for this experiment [1:4]
             period: Period of the stream experiment
             (milliseconds) [1:65536]
+        Raises:
+            ValueError: Invalid values
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -586,7 +745,12 @@ class DAQ:
         Args:
             period: Period of the burst experiment
             (microseconds) [100:65535]
+        Raises:
+            ValueError: Invalid period
         """
+        if not 100 <= period <= 65535:
+            raise ValueError('Invalid period')
+
         cmd = struct.pack('!BBH', 21, 2, period)
         return self.send_command(cmd, 'H')
 
@@ -597,9 +761,15 @@ class DAQ:
         Args:
             number: Assign a DataChannel number for this experiment [1:4]
             edge: New data on rising (1) or falling (0) edges [0:1]
+        Raises:
+            ValueError: Invalid values
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
+
+        if not edge in [0, 1]:
+            raise ValueError('Invalid edge')
+
         cmd = struct.pack('!BBBB', 20, 2, number, edge)
         return self.send_command(cmd, 'BB')
 
@@ -610,10 +780,15 @@ class DAQ:
         Args:
             data: Total number of data points [1:400]
             offset: Offset for each value
+        Raises:
+            LengthError: Invalid dada length
         """
+        if not 1 <= len(data) <= 400:
+            raise LengthError('Invalid data length')
+
         values = []
         for volts in data:
-            raw = self.volts_to_raw(volts)
+            raw = self.__volts_to_raw(volts)
             if self.hw_ver == "s":
                 raw *= 2
 
@@ -666,6 +841,9 @@ class DAQ:
         Raises:
            LengthError: An error ocurred
         """
+        if not 1 <= channel <= 4:
+            raise ValueError('channel out of range')
+
         # Receive all stream data in the in buffer
         while 1:
             ret = self.ser.read(1)
@@ -713,13 +891,12 @@ class DAQ:
     # Returns 0 if there is not incoming data
     # Returns 1 if data stream was precessed
     # Returns 2 if no data stream was received (useful for debugging)
-    def get_stream(self, data, channel, callback=0):
+    def get_stream(self, data, channel):
         """Get stream from serial connection
 
         Args:
             data: Data buffer
             channel: Experiment number
-            callback: Callback mode
 
         Returns:
             0 if there is not any incoming data.
@@ -778,7 +955,12 @@ class DAQ:
 
         Args:
             id: id number of the device [000:999]
+        Raises:
+            ValueError: id out of range
         """
+        if not 0 <= id < 1000:
+            raise ValueError('id out of range')
+
         cmd = struct.pack('!BBI', 39, 4, id)
         return self.send_command(cmd, 'bbI')
 
@@ -789,7 +971,7 @@ class DAQ:
             cpol: Clock polarity (clock pin state when inactive)
             cpha: Clock phase (leading 0, or trailing 1 edges read)
         Raises:
-            ValueError
+            ValueError: Invalid spisw_config values
         """
         if not 0 <= cpol <= 1 or not 0 <= cpha <= 1:
             raise ValueError('Invalid spisw_config values')
@@ -805,7 +987,7 @@ class DAQ:
             mosi: MOSI pin (master out / slave in)
             miso: MISO pin (master in / slave out)
         Raises:
-            ValueError
+            ValueError: Invalid values
         """
         if not 0 <= nbytes <= 3:
             raise ValueError('Invalid number of bytes')
@@ -820,7 +1002,12 @@ class DAQ:
         Args:
             value: Data to send (byte/word to transmit)
             word: send a 2-byte word, instead of a byte
+        Raises:
+            ValueError: Value out of range
         """
+        if not 0 <= value <= 65535:
+            raise ValueError("value out of range")
+
         if word:
             cmd = struct.pack('!BBH', 29, 2, value)
             ret = self.send_command(cmd, 'H')[0]
