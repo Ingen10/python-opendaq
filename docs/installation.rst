@@ -1,7 +1,11 @@
 Installation
 ============
 
-At the command line::
+You need to have Python 2.7 installed to run setup installation::
+
+    $ python setup.py install
+
+If you have pip, at the command line::
 
     $ pip install opendaq
 
