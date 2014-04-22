@@ -427,11 +427,11 @@ class DAQ:
         """Start Encoder function
 
         Args:
-            resolution: Maximum number of ticks per round [0:65535]
+            resolution: Maximum number of ticks per round [0:255]
         Raises:
             ValueError: resolution value out of range
         """
-        if not 0 <= resolution <= 65535:
+        if not 0 <= resolution <= 255:
             raise ValueError("resolution value out of range")
 
         cmd = struct.pack('!BBB', 50, 1, resolution)
@@ -817,9 +817,9 @@ class DAQ:
                 break
             except:
                 time.sleep(0.2)
-                self.flush()
+                self.__flush()
 
-    def flush(self):
+    def __flush(self):
         """
         Flush internal buffers
         """
@@ -975,7 +975,7 @@ class DAQ:
         """
         if not 0 <= cpol <= 1 or not 0 <= cpha <= 1:
             raise ValueError('Invalid spisw_config values')
-        cmd = struct.pack('!BBB', 26, 2, cpol, cpha)
+        cmd = struct.pack('!BBBB', 26, 2, cpol, cpha)
         return self.send_command(cmd, 'BB')
 
     def spi_setup(self, nbytes, sck=1, mosi=2, miso=3):
