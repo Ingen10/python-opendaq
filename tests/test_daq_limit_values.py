@@ -2,25 +2,37 @@ import unittest
 from opendaq import DAQ
 
 
-class TestDAQ(unittest.TestCase):
-    def setUp(self):
+class TestDAQLimitValues(unittest.TestCase):
+    @classmethod 
+    def setUpClass(self):
         '''
         Connect to openDAQ.
         Initial setup.
         '''
+        self.daq = DAQ("COM3")
+
+    @classmethod
+    def tearDownClass(self):
+        '''
+        Disconnect openDAQ
+        '''
+        self.daq.close()
 
     def test_set_led(self):
         '''
         set_led(color)
-        color = (0, 3)
+        color = (0 - 3)
         '''
+        for color in range(4):
+            self.daq.set_led(color)
 
     def test_set_led_error(self):
         '''
         set_led(color) -> ValueError
-
         color = (-1, 4)
         '''
+        self.assertRaises(ValueError, self.daq.set_led, -1)
+        self.assertRaises(ValueError, self.daq.set_led, 4)
 
     def test_conf_adc(self):
         '''
