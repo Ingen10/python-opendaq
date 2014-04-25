@@ -1,18 +1,19 @@
 import unittest
 from opendaq import DAQ
+from opendaq.common import mkcmd
+from mock import Mock, patch
 
-
+@patch('time.sleep', Mock())
 class TestDAQLimitValues(unittest.TestCase):
-    @classmethod 
-    def setUpClass(self):
+    def setUp(self):
         '''
         Connect to openDAQ.
         Initial setup.
         '''
         self.daq = DAQ("COM3")
+        self.hw_ver = self.daq.hw_ver
 
-    @classmethod
-    def tearDownClass(self):
+    def tearDown(self):
         '''
         Disconnect openDAQ
         '''
@@ -23,8 +24,10 @@ class TestDAQLimitValues(unittest.TestCase):
         set_led(color)
         color = (0 - 3)
         '''
-        for color in range(4):
-            self.daq.set_led(color)
+        with patch('serial.Serial.read', Mock(return_value=mkcmd(18, 'b', 0))): #if 18 != 18, should throw exception...
+            for color in range(4):
+                self.daq.set_led(color)
+                #serial.Serial.read.assert_called()
 
     def test_set_led_error(self):
         '''
@@ -34,6 +37,7 @@ class TestDAQLimitValues(unittest.TestCase):
         self.assertRaises(ValueError, self.daq.set_led, -1)
         self.assertRaises(ValueError, self.daq.set_led, 4)
 
+    """
     def test_conf_adc(self):
         '''
         conf_adc(pinput, ninput, gain, nsamples)
@@ -45,6 +49,24 @@ class TestDAQLimitValues(unittest.TestCase):
         gain (M) = [0 - 7]
         nsamples = (0, 1, 253, 254)
         '''
+        pinputs = range(1,9)
+        ninputs_m = (range(5,9) + [25]) * 2
+        gains_s = range (5) * 2
+        gains_m = range(8)
+        nsampless = (range(2) + range(253,255)) * 2
+        
+        if self.hw_ver == 's':
+            for pinput, gain, nsamples in zip(pinputs, gains_s, nsampless):
+                ninput = pinput + 1 if pinput % 2 else pinput - 1
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
+                ninput = 0
+                conf_adc(pinput, ninput, gain, nsamples)
+
+        elif self.hw_ver == 'm':
+            for pinput, ninput, gain, nsamples in zip(pinputs, ninputs_m, gains_m, nsampless):
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
+                ninput = 0
+                conf_adc(pinput, ninput, gain, nsamples)
 
     def test_conf_adc_error(self):
         '''
@@ -575,3 +597,4 @@ class TestDAQLimitValues(unittest.TestCase):
         value = (-1, 65536)
         word = (-1, 2)
         '''
+    """
