@@ -1,9 +1,12 @@
 import unittest
-from opendaq import DAQ
-from opendaq.common import mkcmd
 from mock import Mock, patch
+import struct
+import serial
 
-@patch('time.sleep', Mock())
+from opendaq import DAQ
+from opendaq.common import mkcmd, crc
+
+
 class TestDAQLimitValues(unittest.TestCase):
     def setUp(self):
         '''
@@ -24,10 +27,15 @@ class TestDAQLimitValues(unittest.TestCase):
         set_led(color)
         color = (0 - 3)
         '''
-        with patch('serial.Serial.read', Mock(return_value=mkcmd(18, 'b', 0))): #if 18 != 18, should throw exception...
-            for color in range(4):
-                self.daq.set_led(color)
-                #serial.Serial.read.assert_called()
+        for color in range(4):
+            with patch(
+                'serial.Serial.read',
+                    Mock(return_value=mkcmd(18, 'b', color))):
+                        with patch('serial.Serial.write', Mock()):
+                            self.daq.set_led(color)
+                            cmd = struct.pack('!BBB', 18, 1, color)
+                            packet = crc(cmd) + cmd
+                            serial.Serial.write.assert_called_with(packet)
 
     def test_set_led_error(self):
         '''
@@ -54,19 +62,27 @@ class TestDAQLimitValues(unittest.TestCase):
         gains_s = range (5) * 2
         gains_m = range(8)
         nsampless = (range(2) + range(253,255)) * 2
-        
+
         if self.hw_ver == 's':
             for pinput, gain, nsamples in zip(pinputs, gains_s, nsampless):
                 ninput = pinput + 1 if pinput % 2 else pinput - 1
-                self.daq.conf_adc(pinput, ninput, gain, nsamples)
+                with patch(
+                'serial.Serial.read',
+                    Mock(return_value=mkcmd(2, 'bbbb', pinput, ninput, gain, nsamples))):
+                        with patch('serial.Serial.write', Mock()):
+                            self.daq.conf_adc(pinput, ninput, gain, nsamples)
+                            cmd = struct.pack('!BBBBBB', 2, 4, pinput, ninput, gain, nsamples)
+                            packet = crc(cmd) + cmd
+                            serial.Serial.write.assert_called_with(packet)
+
                 ninput = 0
-                conf_adc(pinput, ninput, gain, nsamples)
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
 
         elif self.hw_ver == 'm':
             for pinput, ninput, gain, nsamples in zip(pinputs, ninputs_m, gains_m, nsampless):
                 self.daq.conf_adc(pinput, ninput, gain, nsamples)
                 ninput = 0
-                conf_adc(pinput, ninput, gain, nsamples)
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
 
     def test_conf_adc_error(self):
         '''
