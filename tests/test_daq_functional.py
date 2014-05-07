@@ -10,21 +10,6 @@ connections to make tests:
 '''
 
 class TestDAQFunctional(unittest.TestCase):
-    @classmethod
-    def setUpClass(self):
-        '''
-        Connect to openDAQ.
-        Initial setup.
-        '''
-        self.daq = DAQ("COM3")
-
-    @classmethod
-    def tearDownClass(self):
-        '''
-        Disconnect openDAQ
-        '''
-        self.daq.close()
-
     def test_init(self):
         '''
         test hw_ver, port, measuring...

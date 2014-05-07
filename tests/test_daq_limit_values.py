@@ -1,11 +1,13 @@
 import unittest
 from mock import Mock, patch
 import struct
-import serial
-
+import opendaq
 from opendaq import DAQ
+from opendaq.serial_sim import SerialSim
 from opendaq.common import mkcmd, crc
 
+SSIM_READ = 'opendaq.serial_sim.SerialSim.read'
+SSIM_WRITE = 'opendaq.serial_sim.SerialSim.write'
 
 class TestDAQLimitValues(unittest.TestCase):
     def setUp(self):
@@ -13,7 +15,7 @@ class TestDAQLimitValues(unittest.TestCase):
         Connect to openDAQ.
         Initial setup.
         '''
-        self.daq = DAQ("com3")
+        self.daq = DAQ("sim")
         self.hw_ver = self.daq.hw_ver
 
     def tearDown(self):
@@ -22,20 +24,18 @@ class TestDAQLimitValues(unittest.TestCase):
         '''
         self.daq.close()
 
+    @patch(SSIM_WRITE, Mock())
+    @patch(SSIM_READ, Mock(return_value=mkcmd(18, 'b', 0)))
     def test_set_led(self):
         '''
         set_led(color)
         color = (0 - 3)
         '''
         for color in range(4):
-            with patch(
-                'serial.Serial.read',
-                    Mock(return_value=mkcmd(18, 'b', color))):
-                        with patch('serial.Serial.write', Mock()):
-                            self.daq.set_led(color)
-                            cmd = struct.pack('!BBB', 18, 1, color)
-                            packet = crc(cmd) + cmd
-                            serial.Serial.write.assert_called_with(packet)
+            self.daq.set_led(color)
+            cmd = struct.pack('!BBB', 18, 1, color)
+            packet = crc(cmd) + cmd
+            SerialSim.write.assert_called_with(packet)
 
     def test_set_led_error(self):
         '''
