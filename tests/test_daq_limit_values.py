@@ -13,7 +13,7 @@ class TestDAQLimitValues(unittest.TestCase):
         Connect to openDAQ.
         Initial setup.
         '''
-        self.daq = DAQ("COM3")
+        self.daq = DAQ("com3")
         self.hw_ver = self.daq.hw_ver
 
     def tearDown(self):
