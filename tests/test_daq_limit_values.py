@@ -1,27 +1,51 @@
 import unittest
+from mock import Mock, patch
+import struct
+import opendaq
 from opendaq import DAQ
+from opendaq.serial_sim import SerialSim
+from opendaq.common import mkcmd, crc
 
+SSIM_READ = 'opendaq.serial_sim.SerialSim.read'
+SSIM_WRITE = 'opendaq.serial_sim.SerialSim.write'
 
-class TestDAQ(unittest.TestCase):
+class TestDAQLimitValues(unittest.TestCase):
     def setUp(self):
         '''
         Connect to openDAQ.
         Initial setup.
         '''
+        self.daq = DAQ("sim")
+        self.hw_ver = self.daq.hw_ver
 
+    def tearDown(self):
+        '''
+        Disconnect openDAQ
+        '''
+        self.daq.close()
+
+    @patch(SSIM_WRITE, Mock())
+    @patch(SSIM_READ, Mock(return_value=mkcmd(18, 'b', 0)))
     def test_set_led(self):
         '''
         set_led(color)
-        color = (0, 3)
+        color = (0 - 3)
         '''
+        for color in range(4):
+            self.daq.set_led(color)
+            cmd = struct.pack('!BBB', 18, 1, color)
+            packet = crc(cmd) + cmd
+            SerialSim.write.assert_called_with(packet)
 
     def test_set_led_error(self):
         '''
         set_led(color) -> ValueError
-
         color = (-1, 4)
         '''
+        self.assertRaises(ValueError, self.daq.set_led, -1)
+        self.assertRaises(ValueError, self.daq.set_led, 4)
 
+    """
     def test_conf_adc(self):
         '''
         conf_adc(pinput, ninput, gain, nsamples)
@@ -33,6 +57,32 @@ class TestDAQ(unittest.TestCase):
         gain (M) = [0 - 7]
         nsamples = (0, 1, 253, 254)
         '''
+        pinputs = range(1,9)
+        ninputs_m = (range(5,9) + [25]) * 2
+        gains_s = range (5) * 2
+        gains_m = range(8)
+        nsampless = (range(2) + range(253,255)) * 2
+
+        if self.hw_ver == 's':
+            for pinput, gain, nsamples in zip(pinputs, gains_s, nsampless):
+                ninput = pinput + 1 if pinput % 2 else pinput - 1
+                with patch(
+                'serial.Serial.read',
+                    Mock(return_value=mkcmd(2, 'bbbb', pinput, ninput, gain, nsamples))):
+                        with patch('serial.Serial.write', Mock()):
+                            self.daq.conf_adc(pinput, ninput, gain, nsamples)
+                            cmd = struct.pack('!BBBBBB', 2, 4, pinput, ninput, gain, nsamples)
+                            packet = crc(cmd) + cmd
+                            serial.Serial.write.assert_called_with(packet)
+
+                ninput = 0
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
+
+        elif self.hw_ver == 'm':
+            for pinput, ninput, gain, nsamples in zip(pinputs, ninputs_m, gains_m, nsampless):
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
+                ninput = 0
+                self.daq.conf_adc(pinput, ninput, gain, nsamples)
 
     def test_conf_adc_error(self):
         '''
@@ -563,3 +613,4 @@ class TestDAQ(unittest.TestCase):
         value = (-1, 65536)
         word = (-1, 2)
         '''
+    """

@@ -9,13 +9,7 @@ connections to make tests:
 
 '''
 
-class TestDAQ(unittest.TestCase):
-    def setUp(self):
-        '''
-        Connect to openDAQ.
-        Initial setup.
-        '''
-
+class TestDAQFunctional(unittest.TestCase):
     def test_init(self):
         '''
         test hw_ver, port, measuring...
