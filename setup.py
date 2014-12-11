@@ -24,7 +24,7 @@ if sys.argv[-1] == 'publish':
 
 setup(
     name='opendaq',
-    version='0.1.0',
+    version='0.1.1',
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     author='Juan Menendez',
