@@ -4,19 +4,21 @@ Quick start
 Import the module and connect to the device::
 
     $ import opendaq	#import the module
-    $ daq = DAQ("COM2")	#assign the name “daq” to the port 
+    $ daq = DAQ("COM2")	#assign the name daq� to the port 
 	
-Note that the exact name of the port may be different on your computer. It could be something like "ttyUSB0" in Linux or '/dev/tty.SLAB_USBtoUART' in Mac. Ports are listed in `/dev/` directory in both OS.
+Note that the exact name of the port may be different on your computer. 
+
+It could be something like *"ttyUSB0"* in Linux or *'/dev/tty.SLAB_USBtoUART'* in Mac. Ports are listed in `/dev/` directory in both OS.
 
 Command-Response Mode:
 ^^^^^^^^^^^^^^^^^^^^^^
 
-You can control the LED turning it off (0), green (1), red (2), or, orange (3): 
+You can control the LED turning it off (0), green (1), red (2), or, orange (3):: 
 
-	$ daq.set_led(0)
-	$ daq.set_led(1)
-	$ daq.set_led(2)
-	$ daq.set_led(3)
+    $ daq.set_led(0) 
+    $ daq.set_led(1) 
+    $ daq.set_led(2)
+    $ daq.set_led(3)
 
 Set an output voltage (CR Mode)::
 
