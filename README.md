@@ -5,7 +5,7 @@ Python binding for openDAQ hardware.
 openDAQ libraries and examples are compatible with Python 2.7.
 Python 3.X is not yet supported.
 
-See function_reference.rst for additional support.
+See usage.rst for additional support.
 
 * * *
 

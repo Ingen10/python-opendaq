@@ -14,7 +14,7 @@ Common utils used in the rest of the modules.
 opendaq.daq module
 ------------------
 Main functions used to communicate with the device.
-See function_reference.rst for additional info.
+See usage.rst for additional info.
 
 
 .. automodule:: opendaq.daq
