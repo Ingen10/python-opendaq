@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#!/usr/bin/env python
 
 # Copyright 2013
 # Adrian Alvarez <alvarez@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
@@ -22,9 +23,11 @@
 import struct
 import time
 import serial
+import threading
 from opendaq.common import crc, check_crc, mkcmd, check_stream_crc,\
     LengthError
 from opendaq.simulator import DAQSimulator
+from opendaq.stream import DAQStream
 
 BAUDS = 115200
 INPUT_MODES = ('ANALOG_INPUT', 'ANALOG_OUTPUT', 'DIGITAL_INPUT',
@@ -52,6 +55,8 @@ class DAQ:
         self.hw_ver = 'm' if info[0] == 1 else 's'
         self.gains, self.offsets = self.get_cal()
         self.dac_gain, self.dac_offset = self.get_dac_cal()
+        
+        self.streams = [None] * 4
 
     def open(self):
         """Open the serial port
@@ -720,7 +725,7 @@ class DAQ:
         cmd = struct.pack('!BBB', 57, 1, number)
         return self.send_command(cmd, 'B')
 
-    def create_stream(self, number, period):
+    def create_stream_low_level(self, number, period):
         """
         Create Stream experiment
 
@@ -738,6 +743,21 @@ class DAQ:
         cmd = struct.pack('!BBBH', 19, 3, number, period)
         return self.send_command(cmd, 'BH')
 
+    def create_stream(self, number):
+        """
+        Create Stream experiment
+
+        Args:
+            number: Assign a DataChannel number for this experiment [1:4]
+        Raises:
+            ValueError: Invalid values
+        """
+        if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
+            
+        self.streams[number-1] = DAQStream(number, self)
+        return self.streams[number-1]
+        
     def create_burst(self, period):
         """
         Create Burst experiment
@@ -804,6 +824,9 @@ class DAQ:
         """
         self.send_command('\x40\x00', '')
         self.measuring = True
+        
+        streams_thread = StreamsThread(self)
+        streams_thread.start()
 
     def stop(self):
         """
@@ -1015,3 +1038,28 @@ class DAQ:
             cmd = struct.pack('!BBB', 29, 1, value)
             ret = self.send_command(cmd, 'B')[0]
         return ret
+        
+    def is_measuring(self):
+        """
+        Return True if system is measuring
+        """
+        return self.measuring
+
+class StreamsThread(threading.Thread):
+    def __init__(self, daq):
+        self.daq = daq
+        threading.Thread.__init__(self)
+
+    def run(self):
+        while True:
+            data = []
+            channel = []
+            result = self.daq.get_stream(data,channel)
+            if result == 1:
+                #data available
+                for i in range(len(data)):
+                    self.daq.streams[channel[i]].add_point(data[i])
+            elif result == 3:
+                #stop
+                self.daq.measuring = False
+                break
