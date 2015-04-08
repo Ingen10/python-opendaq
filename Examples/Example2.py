@@ -29,19 +29,11 @@ dq.set_analog(0.9)
 #------------------------------------------------------------
 
 
-stream1 = dq.create_stream(1)
-stream1.setup(period1, numberPoints1, 1)
-stream1.analog_setup(0, pinput, ninput, gain, nSamples)
+stream1 = dq.create_stream(1000)
+stream1.setup(period1, numberPoints1, 0, pinput, ninput, gain, nSamples)
 
-stream2 = dq.create_stream(2)
-stream2.setup(period2, numberPoints2, 1)
-stream2.analog_setup(0, pinput, ninput, gain, nSamples)
-
-"""
-stream3 = dq.create_stream(3)
-stream3.setup(period3, numberPoints3, 1)
-stream3.analog_setup(0, pinput, ninput, gain, nSamples)
-"""
+stream2 = dq.create_stream()
+stream2.setup(period2, numberPoints2, 0, pinput, ninput, gain, nSamples)
 
 dq.start()
 
@@ -50,24 +42,9 @@ while True:
     measuring = dq.is_measuring()
     data1 = stream1.read()
     data2 = stream2.read()
-    #data3 = stream2.read()
 
     print "data1", data1
     print "data2", data2
-    #print "data3", data3
+    
     if not measuring:
         break
-
-
-"""
-stream1 = dq.create_stream(1)
-stream1.setup(period1, numberPoints1, 1)
-stream1.analog_setup(0, pinput, ninput, gain, nSamples)
-dq.start()
-
-data1 = stream1.read()
-print "data1", data1
-
-data1 = stream1.read()
-print "data1", data1
-"""

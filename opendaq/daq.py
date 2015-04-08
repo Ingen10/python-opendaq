@@ -692,9 +692,9 @@ class DAQ:
             number: Select a DataChannel number for this experiment
             npoints: Total number of points for the experiment
             [0:65536] (0 indicates continuous acquisition)
-            continuous: Number of repeats [0:1]
-                0 continuous
-                1 run once
+            continuous: Indicates if experiment is continuous
+                False continuous
+                True run once
         Raises:
             ValueError: Values out of range
         """
@@ -703,9 +703,6 @@ class DAQ:
 
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
-
-        if continuous not in [0, 1]:
-            raise ValueError("continuous value out of range")
 
         cmd = struct.pack('!BBBHb', 32, 4, number, npoints, int(continuous))
         return self.send_command(cmd, 'BHB')
@@ -743,20 +740,27 @@ class DAQ:
         cmd = struct.pack('!BBBH', 19, 3, number, period)
         return self.send_command(cmd, 'BH')
 
-    def create_stream(self, number):
+    def create_stream(self, size=1000):
         """
         Create Stream experiment
 
         Args:
-            number: Assign a DataChannel number for this experiment [1:4]
+            size: Buffer size
         Raises:
-            ValueError: Invalid values
+            LengthError: Only 4 experiments available at a time
         """
-        if not 1 <= number <= 4:
-            raise ValueError('Invalid number')
+        if not 1 <= size <= 20000:
+            raise ValueError('Invalid buffer size')
             
-        self.streams[number-1] = DAQStream(number, self)
-        return self.streams[number-1]
+        for i in range(len(self.streams)):
+            if self.streams[i] == None:
+                break
+                
+        if i == 3 and self.streams[i] != None:
+            raise LengthError('Only 4 experiments available at a time')
+
+        self.streams[i] = DAQStream(i+1, size)
+        return self.streams[i]
         
     def create_burst(self, period):
         """
@@ -822,6 +826,15 @@ class DAQ:
         """
         Start all available experiments
         """
+        for s in self.streams:
+            if s == None:
+                continue
+                
+            ret1 = self.create_stream_low_level(s.number, s.period)
+            ret2 = self.setup_channel(s.number, s.npoints, s.continuous)
+            ret3 = self.conf_channel(
+                s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
+        
         self.send_command('\x40\x00', '')
         self.measuring = True
         
