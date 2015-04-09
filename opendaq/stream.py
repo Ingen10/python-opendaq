@@ -21,6 +21,7 @@
 from threading import Lock
 from opendaq.experiment import DAQExperiment
 
+
 class DAQStream(DAQExperiment):
     def __init__(self, number, size):
         """
@@ -35,18 +36,20 @@ class DAQStream(DAQExperiment):
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
-            
+
         if not 1 <= size <= 20000:
             raise ValueError('Invalid buffer size')
 
         self.number = number
-        self.circular_buffer_size = size + 1
-        self.circular_buffer = [None] * self.circular_buffer_size
-        self.circular_buffer_start = 0
-        self.circular_buffer_end = 0
-        self.mutex_circular_buffer = Lock()
+        self.ring_buffer_size = size + 1
+        self.ring_buffer = [None] * self.ring_buffer_size
+        self.ring_buffer_start = 0
+        self.ring_buffer_end = 0
+        self.mutex_ring_buffer = Lock()
 
-    def setup(self, period, npoints, mode, pinput=1, ninput=0, gain=1, nsamples=1, continuous=True):
+    def setup(
+            self, period, npoints, mode, pinput=1, ninput=0, gain=1,
+            nsamples=1, continuous=True):
         """
         Configure a channel for a generic stream experiment.
 
@@ -99,7 +102,7 @@ class DAQStream(DAQExperiment):
 
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
-            
+
         if type(mode) == int and not 0 <= mode <= 5:
             raise ValueError('Invalid mode')
 
@@ -118,46 +121,51 @@ class DAQStream(DAQExperiment):
         self.gain = gain
         self.nsamples = nsamples
 
+    def get_parameters(self):
+        """
+        Return gain, pintput and ninput
+        """
+        return self.gain, self.pinput, self.ninput
+
     def add_point(self, point):
         """
-        Write a single point into the circular buffer
+        Write a single point into the ring buffer
 
         Args:
             - point: Point to write into the buffer
         """
-        self.mutex_circular_buffer.acquire()
-        
-        self.circular_buffer[self.circular_buffer_end] = point
-        self.circular_buffer_end += 1
-        if self.circular_buffer_end >= self.circular_buffer_size:
-            self.circular_buffer_end = 0
-            
-        if self.circular_buffer_end == self.circular_buffer_start:
-            self.circular_buffer_end -= 1
-        if self.circular_buffer_end < 0:
-            self.circular_buffer_end = self.circular_buffer_size-1
-            
-        self.mutex_circular_buffer.release()
-        
+        self.mutex_ring_buffer.acquire()
+
+        self.ring_buffer[self.ring_buffer_end] = point
+        self.ring_buffer_end += 1
+        if self.ring_buffer_end >= self.ring_buffer_size:
+            self.ring_buffer_end = 0
+
+        if self.ring_buffer_end == self.ring_buffer_start:
+            self.ring_buffer_end -= 1
+        if self.ring_buffer_end < 0:
+            self.ring_buffer_end = self.ring_buffer_size-1
+
+        self.mutex_ring_buffer.release()
+
     def read(self):
         """
-        Return all available points from the circular buffer
+        Return all available points from the ring buffer
         """
         buffer = []
-        self.mutex_circular_buffer.acquire()
-            
-        if self.circular_buffer_start < self.circular_buffer_end:
-            for i in range (self.circular_buffer_start, self.circular_buffer_end):
-                buffer.append(self.circular_buffer[i])
-                
-        if self.circular_buffer_start > self.circular_buffer_end:            
-            for i in range (self.circular_buffer_start, self.circular_buffer_size):
-                buffer.append(self.circular_buffer[i])
-                
-            for i in range (0, self.circular_buffer_end):
-                buffer.append(self.circular_buffer[i])
+        self.mutex_ring_buffer.acquire()
 
-        self.circular_buffer_start = self.circular_buffer_end = 0
-        self.mutex_circular_buffer.release()
+        if self.ring_buffer_start < self.ring_buffer_end:
+            for i in range(self.ring_buffer_start, self.ring_buffer_end):
+                buffer.append(self.ring_buffer[i])
+
+        if self.ring_buffer_start > self.ring_buffer_end:
+            for i in range(self.ring_buffer_start, self.ring_buffer_size):
+                buffer.append(self.ring_buffer[i])
+
+            for i in range(0, self.ring_buffer_end):
+                buffer.append(self.ring_buffer[i])
+
+        self.ring_buffer_start = self.ring_buffer_end = 0
+        self.mutex_ring_buffer.release()
         return buffer
-        

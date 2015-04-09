@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-#!/usr/bin/env python
+# !/usr/bin/env python
+# !/usr/bin/env python
 
 # Copyright 2013
 # Adrian Alvarez <alvarez@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
@@ -39,9 +39,10 @@ LED_RED = 2
 NAK = mkcmd(160, '')
 
 
-class DAQ:
+class DAQ(threading.Thread):
     def __init__(self, port, debug=False):
         """Class constructor"""
+        threading.Thread.__init__(self)
         self.port = port
         self.debug = debug
         self.simulate = (port == 'sim')
@@ -55,8 +56,8 @@ class DAQ:
         self.hw_ver = 'm' if info[0] == 1 else 's'
         self.gains, self.offsets = self.get_cal()
         self.dac_gain, self.dac_offset = self.get_dac_cal()
-        
-        self.streams = [None] * 4
+
+        self.experiments = [None] * 4
 
     def open(self):
         """Open the serial port
@@ -173,8 +174,8 @@ class DAQ:
             raise ValueError("negative input out of range")
 
         if self.hw_ver == 's' and ninput != 0 and (
-            pinput % 2 == 0 and ninput != pinput - 1
-                or pinput % 2 != 0 and ninput != pinput + 1):
+            pinput % 2 == 0 and ninput != pinput - 1 or
+                pinput % 2 != 0 and ninput != pinput + 1):
                     raise ValueError("negative input out of range")
 
         if self.hw_ver == 'm' and not 0 <= gain <= 4:
@@ -667,8 +668,8 @@ class DAQ:
             raise ValueError("negative input out of range")
 
         if self.hw_ver == 's' and ninput != 0 and (
-            pinput % 2 == 0 and ninput != pinput - 1
-                or pinput % 2 != 0 and ninput != pinput + 1):
+            pinput % 2 == 0 and ninput != pinput - 1 or
+                pinput % 2 != 0 and ninput != pinput + 1):
                     raise ValueError("negative input out of range")
 
         if self.hw_ver == 'm' and not 0 <= gain <= 4:
@@ -737,6 +738,7 @@ class DAQ:
             raise ValueError('Invalid number')
         if not 1 <= period <= 65535:
             raise ValueError('Invalid period')
+
         cmd = struct.pack('!BBBH', 19, 3, number, period)
         return self.send_command(cmd, 'BH')
 
@@ -751,17 +753,17 @@ class DAQ:
         """
         if not 1 <= size <= 20000:
             raise ValueError('Invalid buffer size')
-            
-        for i in range(len(self.streams)):
-            if self.streams[i] == None:
+
+        for i in range(len(self.experiments)):
+            if self.experiments[i] == None:
                 break
-                
-        if i == 3 and self.streams[i] != None:
+
+        if i == 3 and self.experiments[i] != None:
             raise LengthError('Only 4 experiments available at a time')
 
-        self.streams[i] = DAQStream(i+1, size)
-        return self.streams[i]
-        
+        self.experiments[i] = DAQStream(i+1, size)
+        return self.experiments[i]
+
     def create_burst(self, period):
         """
         Create Burst experiment
@@ -791,7 +793,7 @@ class DAQ:
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
 
-        if not edge in [0, 1]:
+        if edge not in [0, 1]:
             raise ValueError('Invalid edge')
 
         cmd = struct.pack('!BBBB', 20, 2, number, edge)
@@ -826,20 +828,19 @@ class DAQ:
         """
         Start all available experiments
         """
-        for s in self.streams:
-            if s == None:
+        for s in self.experiments:
+            if s is None:
                 continue
-                
+
             ret1 = self.create_stream_low_level(s.number, s.period)
             ret2 = self.setup_channel(s.number, s.npoints, s.continuous)
             ret3 = self.conf_channel(
                 s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
-        
+
         self.send_command('\x40\x00', '')
         self.measuring = True
-        
-        streams_thread = StreamsThread(self)
-        streams_thread.start()
+
+        threading.Thread.start(self)
 
     def stop(self):
         """
@@ -847,6 +848,8 @@ class DAQ:
         """
 
         self.measuring = False
+        for i in range(len(self.experiments)):
+            self.experiments[i] = None
         while True:
             try:
                 self.send_command('\x50\x00', '')
@@ -1051,28 +1054,55 @@ class DAQ:
             cmd = struct.pack('!BBB', 29, 1, value)
             ret = self.send_command(cmd, 'B')[0]
         return ret
-        
+
     def is_measuring(self):
-        """
-        Return True if system is measuring
+        """Return True if system is measuring
         """
         return self.measuring
 
-class StreamsThread(threading.Thread):
-    def __init__(self, daq):
-        self.daq = daq
-        threading.Thread.__init__(self)
+    def __raw_to_volts(self, raw, experiment):
+        """Convert a raw value to a value in volts.
+
+        Args:
+            raw: Value to convert to volts
+            experiment: DataChannel number of this experiment
+        """
+        if not 0 <= experiment <= 3:
+            raise ValueError('Invalid experiment number')
+
+        gain_id, pinput, ninput = self.experiments[experiment].get_parameters()
+
+        if self.hw_ver == 'm':
+            gain = self.gains[gain_id + 1]
+            offset = self.offsets[gain_id + 1]
+
+            volts = float(raw)
+            volts *= gain
+            volts = -volts/1e5
+            volts = (volts + offset)/1e3
+
+        if self.hw_ver == 's':
+            n = pinput
+            if ninput != 0:
+                n += 8
+
+            gain = self.gains[n]
+            offset = self.offsets[n]
+            volts = ((float(raw * gain))/1e4 + offset)
+
+        return volts/1000.0
 
     def run(self):
         while True:
             data = []
             channel = []
-            result = self.daq.get_stream(data,channel)
+            result = self.get_stream(data, channel)
             if result == 1:
-                #data available
+                # data available
                 for i in range(len(data)):
-                    self.daq.streams[channel[i]].add_point(data[i])
+                    self.experiments[channel[i]].add_point(
+                        self.__raw_to_volts(data[i], channel[i]))
             elif result == 3:
-                #stop
-                self.daq.measuring = False
+                # stop
+                self.stop()
                 break
