@@ -58,6 +58,7 @@ class DAQ(threading.Thread):
         self.dac_gain, self.dac_offset = self.get_dac_cal()
 
         self.experiments = [None] * 4
+        self.preload_data = None
 
     def open(self):
         """Open the serial port
@@ -799,7 +800,30 @@ class DAQ(threading.Thread):
         cmd = struct.pack('!BBBB', 20, 2, number, edge)
         return self.send_command(cmd, 'BB')
 
-    def load_signal(self, data, offset):
+    def __load_signal(self):
+        """
+        Load an array of values in volts to preload DAC output
+
+        Raises:
+            LengthError: Invalid dada length
+        """
+        if not 1 <= len(self.preload_data) <= 400:
+            raise LengthError('Invalid data length')
+
+        values = []
+        for volts in self.preload_data:
+            raw = self.__volts_to_raw(volts)
+            '''
+            if self.hw_ver == "s":
+                raw *= 2'''
+
+            values.append(raw)
+            
+        cmd = struct.pack(
+            '!bBh%dH' % len(values), 23, len(values) * 2 + 2, self.preload_offset, *values)
+        return self.send_command(cmd, 'Bh')
+
+    def load_signal(self, data, offset=0):
         """
         Load an array of values in volts to preload DAC output
 
@@ -811,19 +835,10 @@ class DAQ(threading.Thread):
         """
         if not 1 <= len(data) <= 400:
             raise LengthError('Invalid data length')
-
-        values = []
-        for volts in data:
-            raw = self.__volts_to_raw(volts)
-            if self.hw_ver == "s":
-                raw *= 2
-
-            values.append(raw)
-
-        cmd = struct.pack(
-            '!bBh%dH' % len(values), 23, len(values) * 2 + 2, offset, *values)
-        return self.send_command(cmd, 'Bh')
-
+            
+        self.preload_data = data
+        self.preload_offset = offset
+            
     def start(self):
         """
         Start all available experiments
@@ -831,11 +846,26 @@ class DAQ(threading.Thread):
         for s in self.experiments:
             if s is None:
                 continue
+                
+            if s.mode and s.number != 4:
+                aux = self.experiments[3]
+                self.experiments[3] = s
+                self.experiments[s.number-1] = aux
+                if not self.experiments[s.number-1] is None:
+                    self.experiments[s.number-1].number = s.number
+                self.experiments[3].number = 4
 
+        for s in self.experiments:
+            if s is None:
+                continue
             ret1 = self.create_stream_low_level(s.number, s.period)
             ret2 = self.setup_channel(s.number, s.npoints, s.continuous)
             ret3 = self.conf_channel(
                 s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
+
+        if self.preload_data:
+            self.__load_signal()
+            self.preload_data = None
 
         self.send_command('\x40\x00', '')
         self.measuring = True

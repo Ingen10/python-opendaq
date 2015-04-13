@@ -1,7 +1,5 @@
 import serial
 import time
-import matplotlib
-import matplotlib.pyplot as plt
 from opendaq import *
 import numpy as np
 
