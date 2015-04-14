@@ -28,6 +28,8 @@ from opendaq.common import crc, check_crc, mkcmd, check_stream_crc,\
     LengthError
 from opendaq.simulator import DAQSimulator
 from opendaq.stream import DAQStream
+from opendaq.burst import DAQBurst
+from opendaq.external import DAQExternal
 
 BAUDS = 115200
 INPUT_MODES = ('ANALOG_INPUT', 'ANALOG_OUTPUT', 'DIGITAL_INPUT',
@@ -724,7 +726,7 @@ class DAQ(threading.Thread):
         cmd = struct.pack('!BBB', 57, 1, number)
         return self.send_command(cmd, 'B')
 
-    def create_stream_low_level(self, number, period):
+    def __create_stream(self, number, period):
         """
         Create Stream experiment
 
@@ -750,10 +752,14 @@ class DAQ(threading.Thread):
         Args:
             size: Buffer size
         Raises:
-            LengthError: Only 4 experiments available at a time
+            LengthError: Too much experiments at a time
         """
         if not 1 <= size <= 20000:
             raise ValueError('Invalid buffer size')
+
+        for i in range(len(self.experiments)):
+            if type(self.experiments[i]) is DAQBurst:
+                raise LengthError('Only 1 burst available at a time')
 
         for i in range(len(self.experiments)):
             if self.experiments[i] == None:
@@ -765,7 +771,21 @@ class DAQ(threading.Thread):
         self.experiments[i] = DAQStream(i+1, size)
         return self.experiments[i]
 
-    def create_burst(self, period):
+    def create_burst(self):
+        """
+        Create Burst experiment
+
+        Raises:
+            LengthError: Only 1 burst experiment available at a time
+        """
+        for i in range(len(self.experiments)):
+            if not self.experiments[i] is None:
+                raise LengthError('Only 1 burst available at a time')
+
+        self.experiments[0] = DAQBurst()
+        return self.experiments[0]
+
+    def __create_burst(self, period):
         """
         Create Burst experiment
 
@@ -781,7 +801,33 @@ class DAQ(threading.Thread):
         cmd = struct.pack('!BBH', 21, 2, period)
         return self.send_command(cmd, 'H')
 
-    def create_external(self, number, edge):
+    def create_external(self, size=1000):
+        """
+        Create External experiment
+
+        Args:
+            size: Buffer size
+        Raises:
+            LengthError: Too much experiments at a time
+        """
+        if not 1 <= size <= 20000:
+            raise ValueError('Invalid buffer size')
+
+        for i in range(len(self.experiments)):
+            if type(self.experiments[i]) is DAQBurst:
+                raise LengthError('Only 1 burst available at a time')
+
+        for i in range(len(self.experiments)):
+            if self.experiments[i] == None:
+                break
+
+        if i == 3 and self.experiments[i] != None:
+            raise LengthError('Only 4 experiments available at a time')
+
+        self.experiments[i] = DAQExternal(i+1, size)
+        return self.experiments[i]
+
+    def __create_external(self, number, edge):
         """
         Create External experiment
 
@@ -818,9 +864,10 @@ class DAQ(threading.Thread):
                 raw *= 2'''
 
             values.append(raw)
-            
+
         cmd = struct.pack(
-            '!bBh%dH' % len(values), 23, len(values) * 2 + 2, self.preload_offset, *values)
+            '!bBh%dH' % len(values), 23, len(values) * 2 + 2,
+            self.preload_offset, *values)
         return self.send_command(cmd, 'Bh')
 
     def load_signal(self, data, offset=0):
@@ -835,33 +882,48 @@ class DAQ(threading.Thread):
         """
         if not 1 <= len(data) <= 400:
             raise LengthError('Invalid data length')
-            
+
         self.preload_data = data
         self.preload_offset = offset
-            
+
     def start(self):
         """
         Start all available experiments
         """
-        for s in self.experiments:
-            if s is None:
-                continue
-                
-            if s.mode and s.number != 4:
-                aux = self.experiments[3]
-                self.experiments[3] = s
-                self.experiments[s.number-1] = aux
-                if not self.experiments[s.number-1] is None:
-                    self.experiments[s.number-1].number = s.number
-                self.experiments[3].number = 4
+        if (
+            (not self.experiments[0] is None) and
+                type(self.experiments[0]) is DAQBurst):
+                    s = self.experiments[0]
+                    ret1 = self.__create_burst(s.period)
+                    ret2 = self.setup_channel(
+                        s.number, s.npoints, s.continuous)
+                    ret3 = self.conf_channel(
+                            s.number, s.mode, s.pinput, s.ninput, s.gain,
+                            s.nsamples)
+        else:
+            for s in self.experiments:
+                if s is None:
+                    continue
 
-        for s in self.experiments:
-            if s is None:
-                continue
-            ret1 = self.create_stream_low_level(s.number, s.period)
-            ret2 = self.setup_channel(s.number, s.npoints, s.continuous)
-            ret3 = self.conf_channel(
-                s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
+                if s.mode and s.number != 4:
+                    aux = self.experiments[3]
+                    self.experiments[3] = s
+                    self.experiments[s.number-1] = aux
+                    if not self.experiments[s.number-1] is None:
+                        self.experiments[s.number-1].number = s.number
+                    self.experiments[3].number = 4
+
+            for s in self.experiments:
+                if s is None:
+                    continue
+                if type(s) is DAQStream:
+                    ret1 = self.__create_stream(s.number, s.period)
+                else:  # External
+                    ret1 = self.__create_external(s.number, s.edge)
+
+                ret2 = self.setup_channel(s.number, s.npoints, s.continuous)
+                ret3 = self.conf_channel(
+                    s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
 
         if self.preload_data:
             self.__load_signal()
@@ -870,7 +932,10 @@ class DAQ(threading.Thread):
         self.send_command('\x40\x00', '')
         self.measuring = True
 
-        threading.Thread.start(self)
+        if (
+            self.experiments[0] is None or
+                not type(self.experiments[0]) is DAQBurst):
+                    threading.Thread.start(self)
 
     def stop(self):
         """

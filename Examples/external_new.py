@@ -11,32 +11,25 @@ GAINx100 = 4
 
 # Connect to the device
 dq = DAQ("COM9")  # change for the Serial port in which openDAQ is connected
-period1 = 200
-numberPoints1 = 20
-numberPoints2 = 10
+numberPoints1 = 10
 pinput = 8
 ninput = 0
 nSamples = 20
 gain = GAINx05
 
-# ------------------------------------------------------------
-
-preload_buffer = [0.3, 1, 3.3, 2]
-stream_source = dq.create_stream()
-stream_source.setup(200, len(preload_buffer), 1, 0, 0, 0, 0, False)
-dq.load_signal(preload_buffer)
+dq.set_analog(0.9)
 
 # ------------------------------------------------------------
 
-stream1 = dq.create_stream()
-stream1.setup(period1, numberPoints1, 0, pinput, ninput, gain, nSamples)
+external1 = dq.create_external()
+external1.setup(1, numberPoints1, 0, pinput, ninput, gain, nSamples)
 
 dq.start()
 
 while True:
     time.sleep(1)
     measuring = dq.is_measuring()
-    data1 = stream1.read()
+    data1 = external1.read()
 
     print "data1", data1
 

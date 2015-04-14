@@ -30,7 +30,6 @@ class DAQStream(DAQExperiment):
         Args:
             number: Assign a DataChannel number for this experiment [0:3]
             size: Buffer size
-            daq: DAQ object
         Raises:
             ValueError: Invalid values
         """
