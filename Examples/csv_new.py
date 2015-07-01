@@ -1,6 +1,7 @@
 import serial
 import time
 from opendaq import *
+from opendaq.daq import *
 import numpy as np
 
 GAINx05  = 0
@@ -22,14 +23,17 @@ gain = GAINx05
 # ------------------------------------------------------------
 
 preload_buffer = [0.3, 1, 3.3, 2]
-stream_source = dq.create_stream()
-stream_source.setup(200, len(preload_buffer), 1, 0, 0, 0, 0, False)
+stream_source = dq.create_stream(
+    200, ANALOG_OUTPUT, continuous=True, npoints=len(preload_buffer))
+stream_source.analog_setup()
 dq.load_signal(preload_buffer)
 
 # ------------------------------------------------------------
 
-stream1 = dq.create_stream()
-stream1.setup(period1, numberPoints1, 0, pinput, ninput, gain, nSamples)
+stream1 = dq.create_stream(
+    period1, ANALOG_INPUT, continuous=True, npoints=numberPoints1)
+stream1.analog_setup(
+    pinput=pinput, ninput=ninput, gain=gain, nsamples=nSamples)
 
 dq.start()
 

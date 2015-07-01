@@ -23,43 +23,14 @@ from opendaq.experiment import DAQExperiment
 
 
 class DAQStream(DAQExperiment):
-    def __init__(self, number, size):
+    def __init__(self, number, period, mode, npoints, continuous, buffersize):
         """
         Class constructor
 
         Args:
             number: Assign a DataChannel number for this experiment [0:3]
-            size: Buffer size
-        Raises:
-            ValueError: Invalid values
-        """
-        if not 1 <= number <= 4:
-            raise ValueError('Invalid number')
-
-        if not 1 <= size <= 20000:
-            raise ValueError('Invalid buffer size')
-
-        self.number = number
-        self.ring_buffer_size = size + 1
-        self.ring_buffer = [None] * self.ring_buffer_size
-        self.ring_buffer_start = 0
-        self.ring_buffer_end = 0
-        self.mutex_ring_buffer = Lock()
-
-    def setup(
-            self, period, npoints, mode, pinput=1, ninput=0, gain=1,
-            nsamples=1, continuous=True):
-        """
-        Configure a channel for a generic stream experiment.
-
-        Args:
             period: Period of the stream experiment
             (milliseconds) [1:65536]
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False continuous
-                True run once
             mode: Define data source or destination [0:5]:
                 0) ANALOG_INPUT
                 1) ANALOG_OUTPUT
@@ -67,12 +38,52 @@ class DAQStream(DAQExperiment):
                 3) DIGITAL_OUTPUT
                 4) COUNTER_INPUT
                 5) CAPTURE INPUT
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+            buffersize: Buffer size
+            
+        Raises:
+            ValueError: Invalid values
+        """
+        if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
+            
+        if not 1 <= period <= 65535:
+            raise ValueError('Invalid period')
 
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+            
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if not 1 <= buffersize <= 20000:
+            raise ValueError('Invalid buffer size')
+
+        self.number = number
+        self.period = period
+        self.mode = mode
+        self.npoints = npoints
+        self.continuous = continuous
+        self.ring_buffer_size = buffersize + 1
+        self.ring_buffer = [None] * self.ring_buffer_size
+        self.ring_buffer_start = 0
+        self.ring_buffer_end = 0
+        self.mutex_ring_buffer = Lock()
+
+    def analog_setup(
+            self, pinput=1, ninput=0, gain=1, nsamples=1):
+        """
+        Configure a channel for a generic stream experiment.
+
+        Args:
             pinput: Select Positive/SE analog input [1:8]
             ninput: Select Negative analog input:
                 openDAQ[M]= [0, 5, 6, 7, 8, 25]
                 openDAQ[S]= [0,1:8] (must be 0 or pinput-1)
-
             gain: Select PGA multiplier.
                 In case of openDAQ [M]:
                     0. x1/2
@@ -90,31 +101,17 @@ class DAQStream(DAQExperiment):
                     5. x10
                     6. x16
                     7. x20
-
             nsamples: Number of samples to calculate the mean for each point\
                  [0:255].
         Raises:
             ValueError: Values out of range
         """
-        if not 1 <= period <= 65535:
-            raise ValueError('Invalid period')
-
-        if not 0 <= npoints < 65536:
-            raise ValueError('npoints out of range')
-
-        if type(mode) == int and not 0 <= mode <= 5:
-            raise ValueError('Invalid mode')
-
         if not 0 <= pinput <= 8:
             raise ValueError('pinput out of range')
 
         if not 0 <= nsamples < 255:
             raise ValueError("samples number out of range")
 
-        self.period = period
-        self.npoints = npoints
-        self.continuous = continuous
-        self.mode = mode
         self.pinput = pinput
         self.ninput = ninput
         self.gain = gain
@@ -122,7 +119,7 @@ class DAQStream(DAQExperiment):
 
     def get_parameters(self):
         """
-        Return gain, pintput and ninput
+        Return gain, pinput and ninput
         """
         return self.gain, self.pinput, self.ninput
 

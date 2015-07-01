@@ -37,8 +37,31 @@ INPUT_MODES = ('ANALOG_INPUT', 'ANALOG_OUTPUT', 'DIGITAL_INPUT',
 LED_OFF = 0
 LED_GREEN = 1
 LED_RED = 2
-
 NAK = mkcmd(160, '')
+
+ANALOG_INPUT = 0
+ANALOG_OUTPUT = 1
+DIGITAL_INPUT = 2
+DIGITAL_OUTPUT = 3
+COUNTER_INPUT = 4
+CAPTURE_INPUT = 5
+
+GAIN_M_X05 = 0
+GAIN_M_X1 = 1
+GAIN_M_X2 = 2
+GAIN_M_X10 = 3
+GAIN_M_X100 = 4
+
+GAIN_S_X1 = 0
+GAIN_S_X2 = 1
+GAIN_S_X4 = 2
+GAIN_S_X5 = 3
+GAIN_S_X8 = 4
+GAIN_S_X10 = 5
+GAIN_S_X16 = 6
+GAIN_S_X20 = 7
+
+MULTIPLIER_LIST = [1, 2, 4, 5, 8, 10, 16, 20]
 
 
 class DAQ(threading.Thread):
@@ -622,7 +645,7 @@ class DAQ(threading.Thread):
                 2) DIGITAL_INPUT
                 3) DIGITAL_OUTPUT
                 4) COUNTER_INPUT
-                5) CAPTURE INPUT
+                5) CAPTURE_INPUT
 
             - pinput: Select Positive/SE analog input [1:8]
             - ninput: Select Negative analog input:
@@ -688,7 +711,7 @@ class DAQ(threading.Thread):
                           pinput, ninput, gain, nsamples)
         return self.send_command(cmd, 'BBBBBB')
 
-    def setup_channel(self, number, npoints, continuous=True):
+    def setup_channel(self, number, npoints, continuous=False):
         """
         Configure the experiment's number of points
 
@@ -697,8 +720,8 @@ class DAQ(threading.Thread):
             npoints: Total number of points for the experiment
             [0:65536] (0 indicates continuous acquisition)
             continuous: Indicates if experiment is continuous
-                False continuous
-                True run once
+                False run once
+                True continuous
         Raises:
             ValueError: Values out of range
         """
@@ -745,16 +768,41 @@ class DAQ(threading.Thread):
         cmd = struct.pack('!BBBH', 19, 3, number, period)
         return self.send_command(cmd, 'BH')
 
-    def create_stream(self, size=1000):
+    def create_stream(
+            self, period, mode, npoints=10, continuous=False, buffersize=1000):
         """
         Create Stream experiment
 
         Args:
-            size: Buffer size
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+            buffersize: Buffer size
         Raises:
             LengthError: Too much experiments at a time
+            ValueError: Values out of range
         """
-        if not 1 <= size <= 20000:
+        if not 1 <= period <= 65535:
+            raise ValueError('Invalid period')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if not 1 <= buffersize <= 20000:
             raise ValueError('Invalid buffer size')
 
         for i in range(len(self.experiments)):
@@ -768,7 +816,8 @@ class DAQ(threading.Thread):
         if i == 3 and self.experiments[i] != None:
             raise LengthError('Only 4 experiments available at a time')
 
-        self.experiments[i] = DAQStream(i+1, size)
+        self.experiments[i] = DAQStream(
+            i+1, period, mode, npoints, continuous, buffersize)
         return self.experiments[i]
 
     def create_burst(self):
@@ -1184,6 +1233,7 @@ class DAQ(threading.Thread):
             gain = self.gains[n]
             offset = self.offsets[n]
             volts = ((float(raw * gain))/1e4 + offset)
+            volts /= MULTIPLIER_LIST[gain_id]
 
         return volts/1000.0
 
