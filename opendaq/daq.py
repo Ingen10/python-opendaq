@@ -731,6 +731,12 @@ class DAQ(threading.Thread):
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
 
+        if continuous < 2:
+            if continuous:
+                continuous = False
+            else:
+                continuous = True
+
         cmd = struct.pack('!BBBHb', 32, 4, number, npoints, int(continuous))
         return self.send_command(cmd, 'BHB')
 
@@ -919,22 +925,6 @@ class DAQ(threading.Thread):
             self.preload_offset, *values)
         return self.send_command(cmd, 'Bh')
 
-    def load_signal(self, data, offset=0):
-        """
-        Load an array of values in volts to preload DAC output
-
-        Args:
-            data: Total number of data points [1:400]
-            offset: Offset for each value
-        Raises:
-            LengthError: Invalid dada length
-        """
-        if not 1 <= len(data) <= 400:
-            raise LengthError('Invalid data length')
-
-        self.preload_data = data
-        self.preload_offset = offset
-
     def start(self):
         """
         Start all available experiments
@@ -974,9 +964,11 @@ class DAQ(threading.Thread):
                 ret3 = self.conf_channel(
                     s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
 
-        if self.preload_data:
-            self.__load_signal()
-            self.preload_data = None
+        for exp in self.experiments:
+            if type(exp) is DAQStream and exp.get_mode() == ANALOG_OUTPUT:
+                self.preload_data, self.preload_offset = exp.get_preload_data()
+                self.__load_signal()
+                break
 
         self.send_command('\x40\x00', '')
         self.measuring = True

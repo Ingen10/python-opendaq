@@ -123,6 +123,34 @@ class DAQStream(DAQExperiment):
         """
         return self.gain, self.pinput, self.ninput
 
+    def get_mode(self):
+        """
+        Return mode
+        """
+        return self.mode
+
+    def get_preload_data(self):
+        """
+        Return preload_data and preload_offset
+        """
+        return self.preload_data, self.preload_offset
+
+    def load_signal(self, data, offset=0):
+        """
+        Load an array of values in volts to preload DAC output
+
+        Args:
+            data: Total number of data points [1:400]
+            offset: Offset for each value
+        Raises:
+            LengthError: Invalid dada length
+        """
+        if not 1 <= len(data) <= 400:
+            raise LengthError('Invalid data length')
+
+        self.preload_data = data
+        self.preload_offset = offset
+        
     def add_point(self, point):
         """
         Write a single point into the ring buffer

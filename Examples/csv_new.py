@@ -24,14 +24,14 @@ gain = GAINx05
 
 preload_buffer = [0.3, 1, 3.3, 2]
 stream_source = dq.create_stream(
-    200, ANALOG_OUTPUT, continuous=True, npoints=len(preload_buffer))
+    200, ANALOG_OUTPUT, continuous=False, npoints=len(preload_buffer))
 stream_source.analog_setup()
-dq.load_signal(preload_buffer)
+stream_source.load_signal(preload_buffer)
 
 # ------------------------------------------------------------
 
 stream1 = dq.create_stream(
-    period1, ANALOG_INPUT, continuous=True, npoints=numberPoints1)
+    period1, ANALOG_INPUT, continuous=False, npoints=numberPoints1)
 stream1.analog_setup(
     pinput=pinput, ninput=ninput, gain=gain, nsamples=nSamples)
 
