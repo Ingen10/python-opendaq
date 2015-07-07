@@ -775,13 +775,11 @@ class DAQ(threading.Thread):
         return self.send_command(cmd, 'BH')
 
     def create_stream(
-            self, period, mode, npoints=10, continuous=False, buffersize=1000):
+            self, mode, period, npoints=10, continuous=False, buffersize=1000):
         """
         Create Stream experiment
 
         Args:
-            period: Period of the stream experiment
-            (milliseconds) [1:65536]
             mode: Define data source or destination [0:5]:
                 0) ANALOG_INPUT
                 1) ANALOG_OUTPUT
@@ -789,6 +787,8 @@ class DAQ(threading.Thread):
                 3) DIGITAL_OUTPUT
                 4) COUNTER_INPUT
                 5) CAPTURE_INPUT
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
             npoints: Total number of points for the experiment
             [0:65536] (0 indicates continuous acquisition)
             continuous: Indicates if experiment is continuous
@@ -856,30 +856,57 @@ class DAQ(threading.Thread):
         cmd = struct.pack('!BBH', 21, 2, period)
         return self.send_command(cmd, 'H')
 
-    def create_external(self, size=1000):
+    def create_external(
+            self, mode, clock_input, edge=1, npoints=10, continuous=False, buffersize=1000):
         """
         Create External experiment
 
         Args:
-            size: Buffer size
+            clock_input: Assign a DataChannel number and a digital input for this experiment [1:4]
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            edge: New data on rising (1) or falling (0) edges [0:1]
+            (milliseconds) [1:65536]
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+            buffersize: Buffer size
         Raises:
             LengthError: Too much experiments at a time
+            ValueError: Values out of range
         """
-        if not 1 <= size <= 20000:
+        if not 1 <= clock_input <= 4:
+            raise ValueError('Invalid clock_input')
+
+        if edge not in [0, 1]:
+            raise ValueError('Invalid edge')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if not 1 <= buffersize <= 20000:
             raise ValueError('Invalid buffer size')
 
         for i in range(len(self.experiments)):
             if type(self.experiments[i]) is DAQBurst:
                 raise LengthError('Only 1 burst available at a time')
 
-        for i in range(len(self.experiments)):
-            if self.experiments[i] == None:
-                break
+        if self.experiments[clock_input-1] != None:
+            raise ValueError('clock_input is taken')
 
-        if i == 3 and self.experiments[i] != None:
-            raise LengthError('Only 4 experiments available at a time')
-
-        self.experiments[i] = DAQExternal(i+1, size)
+        i = clock_input - 1
+        self.experiments[i] = DAQExternal(
+            i+1, edge, mode, npoints, continuous, buffersize)
         return self.experiments[i]
 
     def __create_external(self, number, edge):
@@ -1233,7 +1260,17 @@ class DAQ(threading.Thread):
         while True:
             data = []
             channel = []
-            result = self.get_stream(data, channel)
+            try:
+                result = self.get_stream(data, channel)
+            except:
+                raise
+                print "antes stop"
+                self.stop()
+                print "antes close"
+                self.close()
+                print "despues close"
+                break
+                print "despues break"
             if result == 1:
                 # data available
                 for i in range(len(data)):
