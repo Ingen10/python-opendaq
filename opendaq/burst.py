@@ -22,26 +22,13 @@ from opendaq.experiment import DAQExperiment
 
 
 class DAQBurst(DAQExperiment):
-    def __init__(self):
+    def __init__(self, period, mode, npoints, continuous):
         """
         Class constructor
-        """
-        pass
-
-    def setup(
-            self, period, npoints, mode, pinput=1, ninput=0, gain=1,
-            nsamples=1, continuous=True):
-        """
-        Configure a channel for a generic stream experiment.
-
+        
         Args:
             period: Period of the stream experiment
             (milliseconds) [1:65536]
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False continuous
-                True run once
             mode: Define data source or destination [0:5]:
                 0) ANALOG_INPUT
                 1) ANALOG_OUTPUT
@@ -49,12 +36,36 @@ class DAQBurst(DAQExperiment):
                 3) DIGITAL_OUTPUT
                 4) COUNTER_INPUT
                 5) CAPTURE INPUT
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False continuous
+                True run once
+        """
+        if not 1 <= period <= 65535:
+            raise ValueError('Invalid period')
 
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        self.period = period
+        self.npoints = npoints
+        self.continuous = continuous
+        self.mode = mode
+
+    def analog_setup(
+            self, pinput=1, ninput=0, gain=1, nsamples=1):
+        """
+        Configure a channel for a generic stream experiment.
+
+        Args:
             pinput: Select Positive/SE analog input [1:8]
             ninput: Select Negative analog input:
                 openDAQ[M]= [0, 5, 6, 7, 8, 25]
                 openDAQ[S]= [0,1:8] (must be 0 or pinput-1)
-
             gain: Select PGA multiplier.
                 In case of openDAQ [M]:
                     0. x1/2
@@ -78,15 +89,6 @@ class DAQBurst(DAQExperiment):
         Raises:
             ValueError: Values out of range
         """
-        if not 1 <= period <= 65535:
-            raise ValueError('Invalid period')
-
-        if not 0 <= npoints < 65536:
-            raise ValueError('npoints out of range')
-
-        if type(mode) == int and not 0 <= mode <= 5:
-            raise ValueError('Invalid mode')
-
         if not 0 <= pinput <= 8:
             raise ValueError('pinput out of range')
 
@@ -94,10 +96,6 @@ class DAQBurst(DAQExperiment):
             raise ValueError("samples number out of range")
 
         self.number = 1
-        self.period = period
-        self.npoints = npoints
-        self.continuous = continuous
-        self.mode = mode
         self.pinput = pinput
         self.ninput = ninput
         self.gain = gain
@@ -108,3 +106,31 @@ class DAQBurst(DAQExperiment):
         Return gain, pintput and ninput
         """
         return self.gain, self.pinput, self.ninput
+
+    def get_mode(self):
+        """
+        Return mode
+        """
+        return self.mode
+
+    def load_signal(self, data, offset=0):
+        """
+        Load an array of values in volts to preload DAC output
+
+        Args:
+            data: Total number of data points [1:400]
+            offset: Offset for each value
+        Raises:
+            LengthError: Invalid dada length
+        """
+        if not 1 <= len(data) <= 400:
+            raise LengthError('Invalid data length')
+
+        self.preload_data = data
+        self.preload_offset = offset
+        
+    def get_preload_data(self):
+        """
+        Return preload_data and preload_offset
+        """
+        return self.preload_data, self.preload_offset

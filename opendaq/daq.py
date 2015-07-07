@@ -631,7 +631,7 @@ class DAQ(threading.Thread):
 
         self.__set_calibration(0, gain, offset)
 
-    def conf_channel(
+    def __conf_channel(
             self, number, mode, pinput=1, ninput=0, gain=1, nsamples=1):
         """
         Configure a channel for a generic stream experiment.
@@ -711,7 +711,7 @@ class DAQ(threading.Thread):
                           pinput, ninput, gain, nsamples)
         return self.send_command(cmd, 'BBBBBB')
 
-    def setup_channel(self, number, npoints, continuous=False):
+    def __setup_channel(self, number, npoints, continuous=False):
         """
         Configure the experiment's number of points
 
@@ -826,18 +826,45 @@ class DAQ(threading.Thread):
             i+1, period, mode, npoints, continuous, buffersize)
         return self.experiments[i]
 
-    def create_burst(self):
+    def create_burst(
+            self, mode, period, npoints=10, continuous=False):
         """
         Create Burst experiment
 
+        Args:
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
         Raises:
             LengthError: Only 1 burst experiment available at a time
+            ValueError: Values out of range
         """
+
+        if not 1 <= period <= 65535:
+            raise ValueError('Invalid period')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+            
         for i in range(len(self.experiments)):
             if not self.experiments[i] is None:
                 raise LengthError('Only 1 burst available at a time')
 
-        self.experiments[0] = DAQBurst()
+        self.experiments[0] = DAQBurst(period, mode, npoints, continuous)
         return self.experiments[0]
 
     def __create_burst(self, period):
@@ -961,9 +988,9 @@ class DAQ(threading.Thread):
                 type(self.experiments[0]) is DAQBurst):
                     s = self.experiments[0]
                     ret1 = self.__create_burst(s.period)
-                    ret2 = self.setup_channel(
+                    ret2 = self.__setup_channel(
                         s.number, s.npoints, s.continuous)
-                    ret3 = self.conf_channel(
+                    ret3 = self.__conf_channel(
                             s.number, s.mode, s.pinput, s.ninput, s.gain,
                             s.nsamples)
         else:
@@ -987,12 +1014,12 @@ class DAQ(threading.Thread):
                 else:  # External
                     ret1 = self.__create_external(s.number, s.edge)
 
-                ret2 = self.setup_channel(s.number, s.npoints, s.continuous)
-                ret3 = self.conf_channel(
+                ret2 = self.__setup_channel(s.number, s.npoints, s.continuous)
+                ret3 = self.__conf_channel(
                     s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
 
         for exp in self.experiments:
-            if type(exp) is DAQStream and exp.get_mode() == ANALOG_OUTPUT:
+            if (type(exp) is DAQStream or type(exp) is DAQBurst) and exp.get_mode() == ANALOG_OUTPUT:
                 self.preload_data, self.preload_offset = exp.get_preload_data()
                 self.__load_signal()
                 break
