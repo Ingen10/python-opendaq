@@ -1260,7 +1260,7 @@ class DAQ(threading.Thread):
         if not 0 <= experiment <= 3:
             raise ValueError('Invalid experiment number')
 
-        gain_id, pinput, ninput = self.experiments[experiment].get_parameters()
+        gain_id, pinput, ninput, number = self.experiments[experiment].get_parameters()
 
         if self.hw_ver == 'm':
             gain = self.gains[gain_id + 1]

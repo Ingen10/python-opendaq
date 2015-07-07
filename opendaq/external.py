@@ -121,7 +121,7 @@ class DAQExternal(DAQExperiment):
         """
         Return gain, pintput and ninput
         """
-        return self.gain, self.pinput, self.ninput
+        return self.gain, self.pinput, self.ninput, self.number
 
     def add_point(self, point):
         """

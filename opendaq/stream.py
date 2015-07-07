@@ -121,7 +121,7 @@ class DAQStream(DAQExperiment):
         """
         Return gain, pinput and ninput
         """
-        return self.gain, self.pinput, self.ninput
+        return self.gain, self.pinput, self.ninput, self.number
 
     def get_mode(self):
         """

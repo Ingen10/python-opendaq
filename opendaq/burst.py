@@ -105,7 +105,7 @@ class DAQBurst(DAQExperiment):
         """
         Return gain, pintput and ninput
         """
-        return self.gain, self.pinput, self.ninput
+        return self.gain, self.pinput, self.ninput, self.number
 
     def get_mode(self):
         """
