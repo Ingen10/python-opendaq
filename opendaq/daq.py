@@ -1036,7 +1036,6 @@ class DAQ(threading.Thread):
         """
         Stop all running experiments
         """
-
         self.measuring = False
         for i in range(len(self.experiments)):
             self.experiments[i] = None
@@ -1047,7 +1046,7 @@ class DAQ(threading.Thread):
             except:
                 time.sleep(0.2)
                 self.flush()
-
+        
     def flush(self):
         """
         Flush internal buffers
@@ -1287,17 +1286,7 @@ class DAQ(threading.Thread):
         while True:
             data = []
             channel = []
-            try:
-                result = self.get_stream(data, channel)
-            except:
-                raise
-                print "antes stop"
-                self.stop()
-                print "antes close"
-                self.close()
-                print "despues close"
-                break
-                print "despues break"
+            result = self.get_stream(data, channel)
             if result == 1:
                 # data available
                 for i in range(len(data)):
@@ -1305,5 +1294,7 @@ class DAQ(threading.Thread):
                         self.__raw_to_volts(data[i], channel[i]))
             elif result == 3:
                 # stop
+                print("EMPEZANDO EL STOP DEL DAQ")
                 self.stop()
+                print("TERMINANDO EL STOP DEL DAQ")
                 break

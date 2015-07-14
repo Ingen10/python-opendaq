@@ -123,6 +123,12 @@ class DAQExternal(DAQExperiment):
         """
         return self.gain, self.pinput, self.ninput, self.number
 
+    def get_mode(self):
+        """
+        Return mode
+        """
+        return self.mode
+        
     def add_point(self, point):
         """
         Write a single point into the ring buffer
