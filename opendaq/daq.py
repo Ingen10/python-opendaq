@@ -73,6 +73,8 @@ class DAQ(threading.Thread):
         self.simulate = (port == 'sim')
 
         self.measuring = False
+        self.measuring_2 = True
+        self.stopping = False
         self.gain = 0
         self.pinput = 1
         self.open()
@@ -859,7 +861,7 @@ class DAQ(threading.Thread):
 
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
-            
+
         for i in range(len(self.experiments)):
             if not self.experiments[i] is None:
                 raise LengthError('Only 1 burst available at a time')
@@ -884,12 +886,14 @@ class DAQ(threading.Thread):
         return self.send_command(cmd, 'H')
 
     def create_external(
-            self, mode, clock_input, edge=1, npoints=10, continuous=False, buffersize=1000):
+            self, mode, clock_input, edge=1, npoints=10, continuous=False,
+            buffersize=1000):
         """
         Create External experiment
 
         Args:
-            clock_input: Assign a DataChannel number and a digital input for this experiment [1:4]
+            clock_input: Assign a DataChannel number and a digital input for
+                this experiment [1:4]
             mode: Define data source or destination [0:5]:
                 0) ANALOG_INPUT
                 1) ANALOG_OUTPUT
@@ -1019,7 +1023,9 @@ class DAQ(threading.Thread):
                     s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
 
         for exp in self.experiments:
-            if (type(exp) is DAQStream or type(exp) is DAQBurst) and exp.get_mode() == ANALOG_OUTPUT:
+            if (
+                    (type(exp) is DAQStream or type(exp) is DAQBurst) and
+                    exp.get_mode() == ANALOG_OUTPUT):
                 self.preload_data, self.preload_offset = exp.get_preload_data()
                 self.__load_signal()
                 break
@@ -1030,7 +1036,10 @@ class DAQ(threading.Thread):
         if (
             self.experiments[0] is None or
                 not type(self.experiments[0]) is DAQBurst):
-                    threading.Thread.start(self)
+                    try:
+                        threading.Thread.start(self)
+                    except:
+                        self.measuring_2 = True
 
     def stop(self):
         """
@@ -1046,7 +1055,7 @@ class DAQ(threading.Thread):
             except:
                 time.sleep(0.2)
                 self.flush()
-        
+
     def flush(self):
         """
         Flush internal buffers
@@ -1259,7 +1268,8 @@ class DAQ(threading.Thread):
         if not 0 <= experiment <= 3:
             raise ValueError('Invalid experiment number')
 
-        gain_id, pinput, ninput, number = self.experiments[experiment].get_parameters()
+        gain_id, pinput, ninput, number = (
+            self.experiments[experiment].get_parameters())
 
         if self.hw_ver == 'm':
             gain = self.gains[gain_id + 1]
@@ -1284,17 +1294,24 @@ class DAQ(threading.Thread):
 
     def run(self):
         while True:
-            data = []
-            channel = []
-            result = self.get_stream(data, channel)
-            if result == 1:
-                # data available
-                for i in range(len(data)):
-                    self.experiments[channel[i]].add_point(
-                        self.__raw_to_volts(data[i], channel[i]))
-            elif result == 3:
-                # stop
-                print("EMPEZANDO EL STOP DEL DAQ")
+            while self.measuring_2:
+                data = []
+                channel = []
+                result = self.get_stream(data, channel)
+                if result == 1:
+                    # data available
+                    for i in range(len(data)):
+                        self.experiments[channel[i]].add_point(
+                            self.__raw_to_volts(data[i], channel[i]))
+                elif result == 3:
+                    # stop
+                    self.stop()
+                    break
+
+            if self.stopping:
                 self.stop()
-                print("TERMINANDO EL STOP DEL DAQ")
-                break
+                self.stopping = False
+
+    def stop_2(self):
+        self.measuring_2 = False
+        self.stopping = True
