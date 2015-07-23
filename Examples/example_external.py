@@ -1,3 +1,6 @@
+""" Configure an external experiment."""
+
+
 from opendaq import *
 from opendaq.daq import *
 import time

@@ -25,7 +25,7 @@ class DAQBurst(DAQExperiment):
     def __init__(self, period, mode, npoints, continuous):
         """
         Class constructor
-        
+
         Args:
             period: Period of the stream experiment
             (milliseconds) [1:65536]

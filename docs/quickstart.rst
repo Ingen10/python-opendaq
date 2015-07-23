@@ -3,7 +3,8 @@ Quick start
 
 Import the module and connect to the device::
 
-    $ import opendaq	#import the module
+    $ from opendaq import DAQ 	#import the module
+    
     $ daq = DAQ("COM2")	#assign the name daqù to the port 
 	
 Note that the exact name of the port may be different on your computer. 
@@ -26,35 +27,31 @@ Set an output voltage (CR Mode)::
 
 Configure an analog input and read back the voltage::
 
-    $ daq.conf_adc(8,0,1,20)
+    $ daq.conf_adc(pinput=8,ninput=0,gain=1,nsamples=20)
     $ daq.read_analog()
 
 
 Stream Mode:
 ^^^^^^^^^^^^
 
-Create a new Experiment, Stream type, with a 100ms period, associated to DataChannel #1::
+Create a new Experiment, Stream type, with a 100ms period, discontinuous mode  associated to DataChannel #1::
 
-    $ daq.create_stream(1, 100)
+    $ stream_exp =  daq.create_stream(ANALOG_INPUT, 100)
 
 Configure the experiment to be an analog reading (A8 as SE input, gain x1)::
 
-    $ daq.conf_channel(1, 0, 8, 0, 1)
+    $ stream_exp.analog_setup(pinput=8,gain=GAIN_S_X1)
 
-
-Set up the experiment to run continuously::
-
-    $ daq.setup_channel(1, 0)
-
-Create empty arrays to store the data and channel values, and start the experiment::
-
-    $ data = []
-    $ chn = []
+Start the experiment::
+        
     $ daq.start()
 
-Keep receiving measured data until you want to stop it::
+Keep receiving measured data until ::
 
-    $ daq.get_stream(data,chn)
-	
-The data points will be stored in the `data` array, while `chn` array will store the experiment id of each point. 
-Note that data points are returned as a raw digital value from this function. You will have to externally apply the calibration of the device to get the actual voltages.
+    $ measuring = True
+
+    $ while dq.is_measuring():
+                
+        print "data"  , stream_exp.read()	
+
+

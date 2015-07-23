@@ -1,7 +1,7 @@
 # !/usr/bin/env python
 # !/usr/bin/env python
 
-# Copyright 2013
+# Copyright 2015
 # Adrian Alvarez <alvarez@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
 # and Armando Vincelle <armando@ingen10.com>
 #
@@ -154,6 +154,19 @@ class DAQ(threading.Thread):
         """
         return self.send_command('\x27\x00', 'BBI')
 
+    def device_info(self):
+        """Return device configuration
+
+        Returns:
+            [hardware version, firmware version, device ID number]
+        """
+	hv,fv,serial = self.get_info()
+	print "Hardware Version: ", "[M]" if hv==1 else "[S]"
+	print "Firmware Version:", fv
+	print "Serial number: OD"+("M08" if hv==1 else "S08")+str(serial).zfill(3)+"5"
+
+        return 
+
     def read_adc(self):
         """Read data from ADC and return the raw value
 
@@ -177,6 +190,30 @@ class DAQ(threading.Thread):
         value = (value + self.offsets[index])/1e3
         return value
 
+    def read_all(self, nsamples=20, gain=0):
+        """Read data from all analog inputs
+
+        Returns:
+            
+        """
+
+        cmd = struct.pack('!BBBB', 4, 2, nsamples, gain)
+        """
+        index = self.pinput
+        value *= self.gains[index]
+        value = value/1e4
+        value = (value + self.offsets[index])/1e3
+        """
+        self.gain = gain
+        values = self.send_command(cmd, '8h')
+        if self.hw_ver == 'm':
+            a = -self.gains[self.gain + 1]/1e5
+            b = self.offsets[self.gain + 1]
+            val = [(v*a+b)/1e3 for v in values]
+        else:
+            val = [(v*self.gains[i+1]/1e4+self.offsets[i+1])/1e3
+                   for i,v in enumerate(values)]
+        return val
     def conf_adc(self, pinput, ninput=0, gain=0, nsamples=20):
         """ Configure the analog-to-digital converter.
 

@@ -1,25 +1,27 @@
-.. python-opendaq documentation master file, created by
-   sphinx-quickstart on Wed Mar 19 13:52:50 2014.
+.. openDAQ documentation master file, created by
+   sphinx-quickstart on Wed Jul 22 14:54:24 2015.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to opendaq-python's documentation!
-==========================================
+Welcome to openDAQ's documentation!
+===================================
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
-   installation
    usage
-   opendaq
    quickstart
-   
+   opendaq
+   installation
+   installation_gui
 
-Index and tables
+
+Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+

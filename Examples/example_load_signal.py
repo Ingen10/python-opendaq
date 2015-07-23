@@ -1,3 +1,6 @@
+"""Configuration for loading a signal """
+
+
 import serial
 import time
 from opendaq import *
