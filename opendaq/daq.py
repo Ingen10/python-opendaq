@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
+# !/usr/bin/env python
 
 # Copyright 2013
 # Adrian Alvarez <alvarez@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
@@ -22,9 +23,13 @@
 import struct
 import time
 import serial
+import threading
 from opendaq.common import crc, check_crc, mkcmd, check_stream_crc,\
     LengthError
 from opendaq.simulator import DAQSimulator
+from opendaq.stream import DAQStream
+from opendaq.burst import DAQBurst
+from opendaq.external import DAQExternal
 
 BAUDS = 115200
 INPUT_MODES = ('ANALOG_INPUT', 'ANALOG_OUTPUT', 'DIGITAL_INPUT',
@@ -32,18 +37,44 @@ INPUT_MODES = ('ANALOG_INPUT', 'ANALOG_OUTPUT', 'DIGITAL_INPUT',
 LED_OFF = 0
 LED_GREEN = 1
 LED_RED = 2
-
 NAK = mkcmd(160, '')
 
+ANALOG_INPUT = 0
+ANALOG_OUTPUT = 1
+DIGITAL_INPUT = 2
+DIGITAL_OUTPUT = 3
+COUNTER_INPUT = 4
+CAPTURE_INPUT = 5
 
-class DAQ:
+GAIN_M_X05 = 0
+GAIN_M_X1 = 1
+GAIN_M_X2 = 2
+GAIN_M_X10 = 3
+GAIN_M_X100 = 4
+
+GAIN_S_X1 = 0
+GAIN_S_X2 = 1
+GAIN_S_X4 = 2
+GAIN_S_X5 = 3
+GAIN_S_X8 = 4
+GAIN_S_X10 = 5
+GAIN_S_X16 = 6
+GAIN_S_X20 = 7
+
+MULTIPLIER_LIST = [1, 2, 4, 5, 8, 10, 16, 20]
+
+
+class DAQ(threading.Thread):
     def __init__(self, port, debug=False):
         """Class constructor"""
+        threading.Thread.__init__(self)
         self.port = port
         self.debug = debug
         self.simulate = (port == 'sim')
 
         self.measuring = False
+        self.measuring_2 = True
+        self.stopping = False
         self.gain = 0
         self.pinput = 1
         self.open()
@@ -52,6 +83,9 @@ class DAQ:
         self.hw_ver = 'm' if info[0] == 1 else 's'
         self.gains, self.offsets = self.get_cal()
         self.dac_gain, self.dac_offset = self.get_dac_cal()
+
+        self.experiments = [None] * 4
+        self.preload_data = None
 
     def open(self):
         """Open the serial port
@@ -168,8 +202,8 @@ class DAQ:
             raise ValueError("negative input out of range")
 
         if self.hw_ver == 's' and ninput != 0 and (
-            pinput % 2 == 0 and ninput != pinput - 1
-                or pinput % 2 != 0 and ninput != pinput + 1):
+            pinput % 2 == 0 and ninput != pinput - 1 or
+                pinput % 2 != 0 and ninput != pinput + 1):
                     raise ValueError("negative input out of range")
 
         if self.hw_ver == 'm' and not 0 <= gain <= 4:
@@ -599,7 +633,7 @@ class DAQ:
 
         self.__set_calibration(0, gain, offset)
 
-    def conf_channel(
+    def __conf_channel(
             self, number, mode, pinput=1, ninput=0, gain=1, nsamples=1):
         """
         Configure a channel for a generic stream experiment.
@@ -613,7 +647,7 @@ class DAQ:
                 2) DIGITAL_INPUT
                 3) DIGITAL_OUTPUT
                 4) COUNTER_INPUT
-                5) CAPTURE INPUT
+                5) CAPTURE_INPUT
 
             - pinput: Select Positive/SE analog input [1:8]
             - ninput: Select Negative analog input:
@@ -662,8 +696,8 @@ class DAQ:
             raise ValueError("negative input out of range")
 
         if self.hw_ver == 's' and ninput != 0 and (
-            pinput % 2 == 0 and ninput != pinput - 1
-                or pinput % 2 != 0 and ninput != pinput + 1):
+            pinput % 2 == 0 and ninput != pinput - 1 or
+                pinput % 2 != 0 and ninput != pinput + 1):
                     raise ValueError("negative input out of range")
 
         if self.hw_ver == 'm' and not 0 <= gain <= 4:
@@ -679,7 +713,7 @@ class DAQ:
                           pinput, ninput, gain, nsamples)
         return self.send_command(cmd, 'BBBBBB')
 
-    def setup_channel(self, number, npoints, continuous=True):
+    def __setup_channel(self, number, npoints, continuous=False):
         """
         Configure the experiment's number of points
 
@@ -687,9 +721,9 @@ class DAQ:
             number: Select a DataChannel number for this experiment
             npoints: Total number of points for the experiment
             [0:65536] (0 indicates continuous acquisition)
-            continuous: Number of repeats [0:1]
-                0 continuous
-                1 run once
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
         Raises:
             ValueError: Values out of range
         """
@@ -699,8 +733,11 @@ class DAQ:
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
 
-        if continuous not in [0, 1]:
-            raise ValueError("continuous value out of range")
+        if continuous < 2:
+            if continuous:
+                continuous = False
+            else:
+                continuous = True
 
         cmd = struct.pack('!BBBHb', 32, 4, number, npoints, int(continuous))
         return self.send_command(cmd, 'BHB')
@@ -720,7 +757,7 @@ class DAQ:
         cmd = struct.pack('!BBB', 57, 1, number)
         return self.send_command(cmd, 'B')
 
-    def create_stream(self, number, period):
+    def __create_stream(self, number, period):
         """
         Create Stream experiment
 
@@ -735,10 +772,104 @@ class DAQ:
             raise ValueError('Invalid number')
         if not 1 <= period <= 65535:
             raise ValueError('Invalid period')
+
         cmd = struct.pack('!BBBH', 19, 3, number, period)
         return self.send_command(cmd, 'BH')
 
-    def create_burst(self, period):
+    def create_stream(
+            self, mode, period, npoints=10, continuous=False, buffersize=1000):
+        """
+        Create Stream experiment
+
+        Args:
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+            buffersize: Buffer size
+        Raises:
+            LengthError: Too much experiments at a time
+            ValueError: Values out of range
+        """
+        if not 1 <= period <= 65535:
+            raise ValueError('Invalid period')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if not 1 <= buffersize <= 20000:
+            raise ValueError('Invalid buffer size')
+
+        for i in range(len(self.experiments)):
+            if type(self.experiments[i]) is DAQBurst:
+                raise LengthError('Only 1 burst available at a time')
+
+        for i in range(len(self.experiments)):
+            if self.experiments[i] == None:
+                break
+
+        if i == 3 and self.experiments[i] != None:
+            raise LengthError('Only 4 experiments available at a time')
+
+        self.experiments[i] = DAQStream(
+            i+1, period, mode, npoints, continuous, buffersize)
+        return self.experiments[i]
+
+    def create_burst(
+            self, mode, period, npoints=10, continuous=False):
+        """
+        Create Burst experiment
+
+        Args:
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+        Raises:
+            LengthError: Only 1 burst experiment available at a time
+            ValueError: Values out of range
+        """
+
+        if not 1 <= period <= 65535:
+            raise ValueError('Invalid period')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        for i in range(len(self.experiments)):
+            if not self.experiments[i] is None:
+                raise LengthError('Only 1 burst available at a time')
+
+        self.experiments[0] = DAQBurst(period, mode, npoints, continuous)
+        return self.experiments[0]
+
+    def __create_burst(self, period):
         """
         Create Burst experiment
 
@@ -754,7 +885,62 @@ class DAQ:
         cmd = struct.pack('!BBH', 21, 2, period)
         return self.send_command(cmd, 'H')
 
-    def create_external(self, number, edge):
+    def create_external(
+            self, mode, clock_input, edge=1, npoints=10, continuous=False,
+            buffersize=1000):
+        """
+        Create External experiment
+
+        Args:
+            clock_input: Assign a DataChannel number and a digital input for
+                this experiment [1:4]
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            edge: New data on rising (1) or falling (0) edges [0:1]
+            (milliseconds) [1:65536]
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+            buffersize: Buffer size
+        Raises:
+            LengthError: Too much experiments at a time
+            ValueError: Values out of range
+        """
+        if not 1 <= clock_input <= 4:
+            raise ValueError('Invalid clock_input')
+
+        if edge not in [0, 1]:
+            raise ValueError('Invalid edge')
+
+        if type(mode) == int and not 0 <= mode <= 5:
+            raise ValueError('Invalid mode')
+
+        if not 0 <= npoints < 65536:
+            raise ValueError('npoints out of range')
+
+        if not 1 <= buffersize <= 20000:
+            raise ValueError('Invalid buffer size')
+
+        for i in range(len(self.experiments)):
+            if type(self.experiments[i]) is DAQBurst:
+                raise LengthError('Only 1 burst available at a time')
+
+        if self.experiments[clock_input-1] != None:
+            raise ValueError('clock_input is taken')
+
+        i = clock_input - 1
+        self.experiments[i] = DAQExternal(
+            i+1, edge, mode, npoints, continuous, buffersize)
+        return self.experiments[i]
+
+    def __create_external(self, number, edge):
         """
         Create External experiment
 
@@ -767,50 +953,101 @@ class DAQ:
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
 
-        if not edge in [0, 1]:
+        if edge not in [0, 1]:
             raise ValueError('Invalid edge')
 
         cmd = struct.pack('!BBBB', 20, 2, number, edge)
         return self.send_command(cmd, 'BB')
 
-    def load_signal(self, data, offset):
+    def __load_signal(self):
         """
         Load an array of values in volts to preload DAC output
 
-        Args:
-            data: Total number of data points [1:400]
-            offset: Offset for each value
         Raises:
             LengthError: Invalid dada length
         """
-        if not 1 <= len(data) <= 400:
+        if not 1 <= len(self.preload_data) <= 400:
             raise LengthError('Invalid data length')
 
         values = []
-        for volts in data:
+        for volts in self.preload_data:
             raw = self.__volts_to_raw(volts)
+            '''
             if self.hw_ver == "s":
-                raw *= 2
+                raw *= 2'''
 
             values.append(raw)
 
         cmd = struct.pack(
-            '!bBh%dH' % len(values), 23, len(values) * 2 + 2, offset, *values)
+            '!bBh%dH' % len(values), 23, len(values) * 2 + 2,
+            self.preload_offset, *values)
         return self.send_command(cmd, 'Bh')
 
     def start(self):
         """
         Start all available experiments
         """
+        if (
+            (not self.experiments[0] is None) and
+                type(self.experiments[0]) is DAQBurst):
+                    s = self.experiments[0]
+                    ret1 = self.__create_burst(s.period)
+                    ret2 = self.__setup_channel(
+                        s.number, s.npoints, s.continuous)
+                    ret3 = self.__conf_channel(
+                            s.number, s.mode, s.pinput, s.ninput, s.gain,
+                            s.nsamples)
+        else:
+            for s in self.experiments:
+                if s is None:
+                    continue
+
+                if s.mode and s.number != 4:
+                    aux = self.experiments[3]
+                    self.experiments[3] = s
+                    self.experiments[s.number-1] = aux
+                    if not self.experiments[s.number-1] is None:
+                        self.experiments[s.number-1].number = s.number
+                    self.experiments[3].number = 4
+
+            for s in self.experiments:
+                if s is None:
+                    continue
+                if type(s) is DAQStream:
+                    ret1 = self.__create_stream(s.number, s.period)
+                else:  # External
+                    ret1 = self.__create_external(s.number, s.edge)
+
+                ret2 = self.__setup_channel(s.number, s.npoints, s.continuous)
+                ret3 = self.__conf_channel(
+                    s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
+
+        for exp in self.experiments:
+            if (
+                    (type(exp) is DAQStream or type(exp) is DAQBurst) and
+                    exp.get_mode() == ANALOG_OUTPUT):
+                self.preload_data, self.preload_offset = exp.get_preload_data()
+                self.__load_signal()
+                break
+
         self.send_command('\x40\x00', '')
         self.measuring = True
+
+        if (
+            self.experiments[0] is None or
+                not type(self.experiments[0]) is DAQBurst):
+                    try:
+                        threading.Thread.start(self)
+                    except:
+                        self.measuring_2 = True
 
     def stop(self):
         """
         Stop all running experiments
         """
-
         self.measuring = False
+        for i in range(len(self.experiments)):
+            self.experiments[i] = None
         while True:
             try:
                 self.send_command('\x50\x00', '')
@@ -1015,3 +1252,66 @@ class DAQ:
             cmd = struct.pack('!BBB', 29, 1, value)
             ret = self.send_command(cmd, 'B')[0]
         return ret
+
+    def is_measuring(self):
+        """Return True if system is measuring
+        """
+        return self.measuring
+
+    def __raw_to_volts(self, raw, experiment):
+        """Convert a raw value to a value in volts.
+
+        Args:
+            raw: Value to convert to volts
+            experiment: DataChannel number of this experiment
+        """
+        if not 0 <= experiment <= 3:
+            raise ValueError('Invalid experiment number')
+
+        gain_id, pinput, ninput, number = (
+            self.experiments[experiment].get_parameters())
+
+        if self.hw_ver == 'm':
+            gain = self.gains[gain_id + 1]
+            offset = self.offsets[gain_id + 1]
+
+            volts = float(raw)
+            volts *= gain
+            volts = -volts/1e5
+            volts = (volts + offset)/1e3
+
+        if self.hw_ver == 's':
+            n = pinput
+            if ninput != 0:
+                n += 8
+
+            gain = self.gains[n]
+            offset = self.offsets[n]
+            volts = ((float(raw * gain))/1e4 + offset)
+            volts /= MULTIPLIER_LIST[gain_id]
+
+        return volts/1000.0
+
+    def run(self):
+        while True:
+            while self.measuring_2:
+                data = []
+                channel = []
+                result = self.get_stream(data, channel)
+                if result == 1:
+                    # data available
+                    for i in range(len(data)):
+                        self.experiments[channel[i]].add_point(
+                            self.__raw_to_volts(data[i], channel[i]))
+                elif result == 3:
+                    # stop
+                    self.stop()
+                    break
+
+            if self.stopping:
+                self.stop()
+                self.stopping = False
+
+    def stop_2(self):
+        self.measuring_2 = False
+        self.stopping = True
