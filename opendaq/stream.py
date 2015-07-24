@@ -44,19 +44,19 @@ class DAQStream(DAQExperiment):
                 False run once
                 True continuous
             buffersize: Buffer size
-            
+
         Raises:
             ValueError: Invalid values
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
-            
+
         if not 1 <= period <= 65535:
             raise ValueError('Invalid period')
 
         if type(mode) == int and not 0 <= mode <= 5:
             raise ValueError('Invalid mode')
-            
+
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
 
@@ -135,22 +135,27 @@ class DAQStream(DAQExperiment):
         """
         return self.preload_data, self.preload_offset
 
-    def load_signal(self, data, offset=0):
+    def load_signal(self, data, offset=0, clear=False):
         """
         Load an array of values in volts to preload DAC output
 
         Args:
             data: Total number of data points [1:400]
             offset: Offset for each value
+            clear: If true: erase the buffer
         Raises:
             LengthError: Invalid dada length
         """
         if not 1 <= len(data) <= 400:
             raise LengthError('Invalid data length')
 
-        self.preload_data = data
-        self.preload_offset = offset
-        
+        if clear:
+            self.preload_data = []
+            self.preload_offset = []
+
+        self.preload_data.append(data)
+        self.preload_offset.append(offset)
+
     def add_point(self, point):
         """
         Write a single point into the ring buffer

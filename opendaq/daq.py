@@ -1,7 +1,7 @@
 # !/usr/bin/env python
 # !/usr/bin/env python
 
-# Copyright 2015
+# Copyright 2013
 # Adrian Alvarez <alvarez@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
 # and Armando Vincelle <armando@ingen10.com>
 #
@@ -154,19 +154,6 @@ class DAQ(threading.Thread):
         """
         return self.send_command('\x27\x00', 'BBI')
 
-    def device_info(self):
-        """Return device configuration
-
-        Returns:
-            [hardware version, firmware version, device ID number]
-        """
-	hv,fv,serial = self.get_info()
-	print "Hardware Version: ", "[M]" if hv==1 else "[S]"
-	print "Firmware Version:", fv
-	print "Serial number: OD"+("M08" if hv==1 else "S08")+str(serial).zfill(3)+"5"
-
-        return 
-
     def read_adc(self):
         """Read data from ADC and return the raw value
 
@@ -190,30 +177,6 @@ class DAQ(threading.Thread):
         value = (value + self.offsets[index])/1e3
         return value
 
-    def read_all(self, nsamples=20, gain=0):
-        """Read data from all analog inputs
-
-        Returns:
-            
-        """
-
-        cmd = struct.pack('!BBBB', 4, 2, nsamples, gain)
-        """
-        index = self.pinput
-        value *= self.gains[index]
-        value = value/1e4
-        value = (value + self.offsets[index])/1e3
-        """
-        self.gain = gain
-        values = self.send_command(cmd, '8h')
-        if self.hw_ver == 'm':
-            a = -self.gains[self.gain + 1]/1e5
-            b = self.offsets[self.gain + 1]
-            val = [(v*a+b)/1e3 for v in values]
-        else:
-            val = [(v*self.gains[i+1]/1e4+self.offsets[i+1])/1e3
-                   for i,v in enumerate(values)]
-        return val
     def conf_adc(self, pinput, ninput=0, gain=0, nsamples=20):
         """ Configure the analog-to-digital converter.
 
@@ -498,11 +461,11 @@ class DAQ(threading.Thread):
         """Start Encoder function
 
         Args:
-            resolution: Maximum number of ticks per round [0:255]
+            resolution: Maximum number of ticks per round [0:65535]
         Raises:
             ValueError: resolution value out of range
         """
-        if not 0 <= resolution <= 255:
+        if not 0 <= resolution <= 65535:
             raise ValueError("resolution value out of range")
 
         cmd = struct.pack('!BBB', 50, 1, resolution)
@@ -1063,8 +1026,11 @@ class DAQ(threading.Thread):
             if (
                     (type(exp) is DAQStream or type(exp) is DAQBurst) and
                     exp.get_mode() == ANALOG_OUTPUT):
-                self.preload_data, self.preload_offset = exp.get_preload_data()
-                self.__load_signal()
+                pr_data, pr_offset = exp.get_preload_data()
+                for i in range(len(pr_data)):
+                    self.preload_data = pr_data[i]
+                    self.preload_offset = pr_offset[i]
+                    self.__load_signal()
                 break
 
         self.send_command('\x40\x00', '')
@@ -1091,9 +1057,9 @@ class DAQ(threading.Thread):
                 break
             except:
                 time.sleep(0.2)
-                self.__flush()
+                self.flush()
 
-    def __flush(self):
+    def flush(self):
         """
         Flush internal buffers
         """
@@ -1249,7 +1215,7 @@ class DAQ(threading.Thread):
         """
         if not 0 <= cpol <= 1 or not 0 <= cpha <= 1:
             raise ValueError('Invalid spisw_config values')
-        cmd = struct.pack('!BBBB', 26, 2, cpol, cpha)
+        cmd = struct.pack('!BBB', 26, 2, cpol, cpha)
         return self.send_command(cmd, 'BB')
 
     def spi_setup(self, nbytes, sck=1, mosi=2, miso=3):
@@ -1326,8 +1292,9 @@ class DAQ(threading.Thread):
             offset = self.offsets[n]
             volts = ((float(raw * gain))/1e4 + offset)
             volts /= MULTIPLIER_LIST[gain_id]
+            volts /= 1000.0
 
-        return volts/1000.0
+        return volts
 
     def run(self):
         while True:
