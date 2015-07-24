@@ -5,7 +5,7 @@ from opendaq.daq import *
 import time
 
 # Connect to the device
-dq = DAQ("/dev/ttyUSB0")  # change for the Serial port in which openDAQ is connected
+dq = DAQ("COM3")  # change for the Serial port in which openDAQ is connected
 
 # Set Analog voltage
 dq.set_analog(0.9)
