@@ -73,7 +73,7 @@ class DAQ(threading.Thread):
         self.simulate = (port == 'sim')
 
         self.measuring = False
-        self.measuring_2 = True
+        self.measuring_2 = False
         self.stopping = False
         self.gain = 0
         self.pinput = 1
@@ -113,8 +113,8 @@ class DAQ(threading.Thread):
         Raises:
             LengthError: The legth of the response is not the expected
         """
-        if self.measuring:
-            self.stop()
+        #if self.measuring:
+        #    self.stop()
 
         # Add 'command' and 'length' fields to the format string
         fmt = '!BB' + ret_fmt
@@ -1312,17 +1312,22 @@ class DAQ(threading.Thread):
                 break
 
         self.send_command('\x40\x00', '')
-        self.measuring = True
 
-        if (
-            self.experiments[0] is None or
-                not type(self.experiments[0]) is DAQBurst):
-                    try:
-			print "thread start"
-                        threading.Thread.start(self)
-                    except:
-			print "except thread: measuring 2"
-                        self.measuring_2 = True
+        if (self.measuring == False):
+            if (
+                self.experiments[0] is None or
+                    not type(self.experiments[0]) is DAQBurst):
+                        try:
+                            print "thread start"
+                            threading.Thread.start(self)
+                        except:
+                            print "except thread"
+        print "experiment_start"
+        self.measuring = True
+        self.measuring_2 = True
+        
+
+                    
 
     def stop(self):
         """
@@ -1331,46 +1336,50 @@ class DAQ(threading.Thread):
         for i in range(len(self.experiments)):
             self.experiments[i] = None
         self.measuring = False
+        self.measuring_2 = False
+        self.stopping = True
         while True:
             try:
                 self.send_command('\x50\x00', '')
 		print "stop()"
                 break
             except:
-		print "except stop(): flush"
+		print "except_stop(): flush"
                 time.sleep(0.2)
                 self.flush()
 
         
     def stop_2(self):
-	print "stop_2()!!"
         self.measuring_2 = False
         #self.stopping = True
-
+        while True:
+            try:
+                self.send_command('\x50\x00', '')
+		print "stop2()"
+                break
+            except:
+		print "except_stop2(): flush"
+                time.sleep(0.2)
+                self.flush()
 
     def run(self):
         while True:
-            while self.measuring_2:
-                data = []
-                channel = []
-                result = self.get_stream(data, channel)
-                print "run&m_2: result=", result
-                if result == 1:
-                    # data available
-                    for i in range(len(data)):
-                        self.experiments[channel[i]].add_point(
-                            self.__raw_to_volts(data[i], channel[i]))
-                else:
-                #elif result == 3:
-                    # stop
-                    self.measuring_2 = False
-                    self.stopping = True
-                    #self.stop()
-                    break
+            while self.measuring:
+                if self.measuring_2:
+                    data = []
+                    channel = []
+                    result = self.get_stream(data, channel)
+                    print "result=", result
+                    if result == 1:
+                        # data available
+                        for i in range(len(data)):
+                            self.experiments[channel[i]].add_point(
+                                self.__raw_to_volts(data[i], channel[i]))
+                    #else:
+                    elif result == 3 or result == 2:
+                        self.stop_2()
 
             if self.stopping:
                 print "stopping..."
-                self.stop()
-                self.stopping = False
                 break
 
