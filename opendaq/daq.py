@@ -1023,82 +1023,6 @@ class DAQ(threading.Thread):
             self.preload_offset, *values)
         return self.send_command(cmd, 'Bh')
 
-    def start(self):
-        """
-        Start all available experiments
-        """
-        if (
-            (not self.experiments[0] is None) and
-                type(self.experiments[0]) is DAQBurst):
-                    s = self.experiments[0]
-                    ret1 = self.__create_burst(s.period)
-                    ret2 = self.__setup_channel(
-                        s.number, s.npoints, s.continuous)
-                    ret3 = self.__conf_channel(
-                            s.number, s.mode, s.pinput, s.ninput, s.gain,
-                            s.nsamples)
-        else:
-            for s in self.experiments:
-                if s is None:
-                    continue
-
-                if s.mode and s.number != 4:
-                    aux = self.experiments[3]
-                    self.experiments[3] = s
-                    self.experiments[s.number-1] = aux
-                    if not self.experiments[s.number-1] is None:
-                        self.experiments[s.number-1].number = s.number
-                    self.experiments[3].number = 4
-
-            for s in self.experiments:
-                if s is None:
-                    continue
-                if type(s) is DAQStream:
-                    ret1 = self.__create_stream(s.number, s.period)
-                else:  # External
-                    ret1 = self.__create_external(s.number, s.edge)
-
-                ret2 = self.__setup_channel(s.number, s.npoints, s.continuous)
-                ret3 = self.__conf_channel(
-                    s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
-
-        for exp in self.experiments:
-            if (
-                    (type(exp) is DAQStream or type(exp) is DAQBurst) and
-                    exp.get_mode() == ANALOG_OUTPUT):
-                pr_data, pr_offset = exp.get_preload_data()
-                for i in range(len(pr_data)):
-                    self.preload_data = pr_data[i]
-                    self.preload_offset = pr_offset[i]
-                    self.__load_signal()
-                break
-
-        self.send_command('\x40\x00', '')
-        self.measuring = True
-
-        if (
-            self.experiments[0] is None or
-                not type(self.experiments[0]) is DAQBurst):
-                    try:
-                        threading.Thread.start(self)
-                    except:
-                        self.measuring_2 = True
-
-    def stop(self):
-        """
-        Stop all running experiments
-        """
-        self.measuring = False
-        for i in range(len(self.experiments)):
-            self.experiments[i] = None
-        while True:
-            try:
-                self.send_command('\x50\x00', '')
-                break
-            except:
-                time.sleep(0.2)
-                self.flush()
-
     def flush(self):
         """
         Flush internal buffers
@@ -1336,26 +1260,117 @@ class DAQ(threading.Thread):
 
         return volts
 
+                
+    def start(self):
+        """
+        Start all available experiments
+        """
+        if (
+            (not self.experiments[0] is None) and
+                type(self.experiments[0]) is DAQBurst):
+                    s = self.experiments[0]
+                    ret1 = self.__create_burst(s.period)
+                    ret2 = self.__setup_channel(
+                        s.number, s.npoints, s.continuous)
+                    ret3 = self.__conf_channel(
+                            s.number, s.mode, s.pinput, s.ninput, s.gain,
+                            s.nsamples)
+        else:
+            for s in self.experiments:
+                if s is None:
+                    continue
+
+                if s.mode and s.number != 4:
+                    aux = self.experiments[3]
+                    self.experiments[3] = s
+                    self.experiments[s.number-1] = aux
+                    if not self.experiments[s.number-1] is None:
+                        self.experiments[s.number-1].number = s.number
+                    self.experiments[3].number = 4
+
+            for s in self.experiments:
+                if s is None:
+                    continue
+                if type(s) is DAQStream:
+                    ret1 = self.__create_stream(s.number, s.period)
+                else:  # External
+                    ret1 = self.__create_external(s.number, s.edge)
+
+                ret2 = self.__setup_channel(s.number, s.npoints, s.continuous)
+                ret3 = self.__conf_channel(
+                    s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
+
+        for exp in self.experiments:
+            if (
+                    (type(exp) is DAQStream or type(exp) is DAQBurst) and
+                    exp.get_mode() == ANALOG_OUTPUT):
+                pr_data, pr_offset = exp.get_preload_data()
+                for i in range(len(pr_data)):
+                    self.preload_data = pr_data[i]
+                    self.preload_offset = pr_offset[i]
+                    self.__load_signal()
+                break
+
+        self.send_command('\x40\x00', '')
+        self.measuring = True
+
+        if (
+            self.experiments[0] is None or
+                not type(self.experiments[0]) is DAQBurst):
+                    try:
+			print "thread start"
+                        threading.Thread.start(self)
+                    except:
+			print "except thread: measuring 2"
+                        self.measuring_2 = True
+
+    def stop(self):
+        """
+        Stop all running experiments
+        """
+        for i in range(len(self.experiments)):
+            self.experiments[i] = None
+        self.measuring = False
+        while True:
+            try:
+                self.send_command('\x50\x00', '')
+		print "stop()"
+                break
+            except:
+		print "except stop(): flush"
+                time.sleep(0.2)
+                self.flush()
+
+        
+    def stop_2(self):
+	print "stop_2()!!"
+        self.measuring_2 = False
+        #self.stopping = True
+
+
     def run(self):
         while True:
             while self.measuring_2:
                 data = []
                 channel = []
                 result = self.get_stream(data, channel)
+                print "run&m_2: result=", result
                 if result == 1:
                     # data available
                     for i in range(len(data)):
                         self.experiments[channel[i]].add_point(
                             self.__raw_to_volts(data[i], channel[i]))
-                elif result == 3:
+                else:
+                #elif result == 3:
                     # stop
-                    self.stop()
+                    self.measuring_2 = False
+                    self.stopping = True
+                    #self.stop()
                     break
 
             if self.stopping:
+                print "stopping..."
                 self.stop()
                 self.stopping = False
+                break
 
-    def stop_2(self):
-        self.measuring_2 = False
-        self.stopping = True
