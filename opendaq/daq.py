@@ -72,8 +72,8 @@ class DAQ(threading.Thread):
         self.debug = debug
         self.simulate = (port == 'sim')
 
+        self.running = False
         self.measuring = False
-        self.measuring_2 = False
         self.stopping = False
         self.gain = 0
         self.pinput = 1
@@ -86,7 +86,7 @@ class DAQ(threading.Thread):
 
         self.experiments = [None] * 4
         self.preload_data = None
-
+        
     def open(self):
         """Open the serial port
         Configure serial port to be opened."""
@@ -113,8 +113,6 @@ class DAQ(threading.Thread):
         Raises:
             LengthError: The legth of the response is not the expected
         """
-        #if self.measuring:
-        #    self.stop()
 
         # Add 'command' and 'length' fields to the format string
         fmt = '!BB' + ret_fmt
@@ -1313,7 +1311,7 @@ class DAQ(threading.Thread):
 
         self.send_command('\x40\x00', '')
 
-        if (self.measuring == False):
+        if (self.running == False):
             if (
                 self.experiments[0] is None or
                     not type(self.experiments[0]) is DAQBurst):
@@ -1323,8 +1321,8 @@ class DAQ(threading.Thread):
                         except:
                             print "except thread"
         print "experiment_start"
+        self.running = True
         self.measuring = True
-        self.measuring_2 = True
         
 
                     
@@ -1336,36 +1334,31 @@ class DAQ(threading.Thread):
         for i in range(len(self.experiments)):
             self.experiments[i] = None
         self.measuring = False
-        self.measuring_2 = False
+        self.running = False
         self.stopping = True
-        while True:
-            try:
-                self.send_command('\x50\x00', '')
-		print "stop()"
-                break
-            except:
-		print "except_stop(): flush"
-                time.sleep(0.2)
-                self.flush()
+        try:
+            self.send_command('\x50\x00', '')
+            print "stop()"
+        except:
+            print "except_stop(): flush"
+            time.sleep(0.2)
+            self.flush()
 
         
     def stop_2(self):
-        self.measuring_2 = False
-        #self.stopping = True
-        while True:
-            try:
-                self.send_command('\x50\x00', '')
-		print "stop2()"
-                break
-            except:
-		print "except_stop2(): flush"
-                time.sleep(0.2)
-                self.flush()
+        self.measuring = False
+        try:
+            self.send_command('\x50\x00', '')
+            print "stop2()"
+        except:
+            print "except_stop2(): flush"
+            time.sleep(0.2)
+            self.flush()
 
     def run(self):
         while True:
-            while self.measuring:
-                if self.measuring_2:
+            while self.running:
+                if self.measuring:
                     data = []
                     channel = []
                     result = self.get_stream(data, channel)
@@ -1382,4 +1375,3 @@ class DAQ(threading.Thread):
             if self.stopping:
                 print "stopping..."
                 break
-
