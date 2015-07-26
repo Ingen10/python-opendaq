@@ -1316,44 +1316,49 @@ class DAQ(threading.Thread):
                 self.experiments[0] is None or
                     not type(self.experiments[0]) is DAQBurst):
                         try:
-                            print "thread start"
                             threading.Thread.start(self)
                         except:
-                            print "except thread"
-        print "experiment_start"
+                            pass
         self.running = True
         self.measuring = True
+        #print "Start!"
         
 
                     
 
     def stop(self):
         """
-        Stop all running experiments
+        Stop all running experiments and exit threads
         """
         for i in range(len(self.experiments)):
             self.experiments[i] = None
         self.measuring = False
         self.running = False
         self.stopping = True
-        try:
-            self.send_command('\x50\x00', '')
-            print "stop()"
-        except:
-            print "except_stop(): flush"
-            time.sleep(0.2)
-            self.flush()
+        while True:
+            try:
+                self.send_command('\x50\x00', '')
+                break
+            except:
+                time.sleep(0.2)
+                self.flush()
+        #print "stop(): goodbye!"
 
         
-    def stop_2(self):
+    def halt(self, clear = False):
         self.measuring = False
-        try:
-            self.send_command('\x50\x00', '')
-            print "stop2()"
-        except:
-            print "except_stop2(): flush"
-            time.sleep(0.2)
-            self.flush()
+        #print "halt:_not_measuring"
+        if clear:
+            #print "halt:experiments_cleared"
+            for i in range(len(self.experiments)):
+                self.experiments[i] = None
+        while True:
+            try:
+                self.send_command('\x50\x00', '')
+                break
+            except:
+                time.sleep(0.2)
+                self.flush()
 
     def run(self):
         while True:
@@ -1362,16 +1367,18 @@ class DAQ(threading.Thread):
                     data = []
                     channel = []
                     result = self.get_stream(data, channel)
-                    print "result=", result
+                    #print "result:",result
                     if result == 1:
                         # data available
                         for i in range(len(data)):
-                            self.experiments[channel[i]].add_point(
-                                self.__raw_to_volts(data[i], channel[i]))
+                            try:
+                                self.experiments[channel[i]].add_point(
+                                    self.__raw_to_volts(data[i], channel[i]))
+                            except:
+                                pass
                     #else:
-                    elif result == 3 or result == 2:
-                        self.stop_2()
+                    elif result == 3: #or result == 2:
+                        self.halt()
 
             if self.stopping:
-                print "stopping..."
                 break
