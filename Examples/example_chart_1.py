@@ -7,7 +7,7 @@ from opendaq import *
 from opendaq import DAQ
 import time
 
-dq = DAQ("/dev/ttyUSB0") #Change  for the serial port in which openDAQ is connected 
+dq = DAQ("COM3") #Change  for the serial port in which openDAQ is connected 
 dq.set_analog(1)
 dq.conf_adc(8)#Reading in AN8
 
