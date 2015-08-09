@@ -2,8 +2,7 @@
 # !/usr/bin/env python
 
 # Copyright 2015
-# Jose R. Blanco <joserb@ingen10.com>, Juan Menendez <juanmb@ingen10.com>
-# and Armando Vincelle <armando@ingen10.com>
+# Ingen10 Ingenieria SL
 #
 # This file is part of opendaq.
 #
@@ -214,7 +213,7 @@ class DAQ(threading.Thread):
         return val
 
 
-    def conf_adc(self, pinput, ninput=0, gain=0, nsamples=20):
+    def conf_adc(self, pinput=8, ninput=0, gain=0, nsamples=20):
         """
         Configure the analog-to-digital converter.
 
@@ -1299,9 +1298,8 @@ class DAQ(threading.Thread):
                     s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
 
         for exp in self.experiments:
-            if (
-                    (type(exp) is DAQStream or type(exp) is DAQBurst) and
-                    exp.get_mode() == ANALOG_OUTPUT):
+            if (type(exp) in (DAQStream, DAQBurst) and
+                exp.get_mode() == ANALOG_OUTPUT):
                 pr_data, pr_offset = exp.get_preload_data()
                 for i in range(len(pr_data)):
                     self.preload_data = pr_data[i]
@@ -1311,7 +1309,7 @@ class DAQ(threading.Thread):
 
         self.send_command('\x40\x00', '')
 
-        if (self.running == False):
+        if not self.running:
             if (
                 self.experiments[0] is None or
                     not type(self.experiments[0]) is DAQBurst):

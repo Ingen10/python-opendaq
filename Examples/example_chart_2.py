@@ -1,31 +1,33 @@
-""" Create an stream and plottin the data"""
+""" Drawing a simple chart in stream mode"""
 
-import serial
 import matplotlib
 import matplotlib.pyplot as plt
 from opendaq import *
-from opendaq import DAQ
 from opendaq.daq import *
 import time
 
-#Change for the serial port in wich openDAQ is connected
+#Change to the serial port in wich openDAQ is actually connected
 dq = DAQ("COM3")
 
-dq.set_analog(1)
+dq.set_analog(1) #set a fix voltage
 
+#Configure the experiment
 data_rate = 200
 stream = dq.create_stream(ANALOG_INPUT, data_rate,continuous=True)
-stream.analog_setup(pinput=8, gain=GAIN_S_X1)
+stream.analog_setup(pinput=7, gain=GAIN_S_X1)
 
+#Initiate lists and variables
 t0 = 0.0
 t =[]
 data = []
 
-dq.start()
-
+#Initiate the plot
 fig = plt.figure()
 plt.ion()
 plt.show()
+
+#start the experiment
+dq.start()
 
 while dq.measuring:
     try:
@@ -39,7 +41,7 @@ while dq.measuring:
         plt.draw()
     except KeyboardInterrupt:
         break
-
+#stop the experiment
 dq.stop()
 
 
