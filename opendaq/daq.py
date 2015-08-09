@@ -1026,67 +1026,6 @@ class DAQ(threading.Thread):
         """
         self.ser.flushInput()
 
-    def flush_stream(self, data, channel):
-        """
-        Flush stream data from buffer
-
-        Args:
-           data:
-           channel: Experiment number
-
-        Returns:
-            0 if there is no incoming data.
-            1 if data stream was processed.
-            2 if no data stream received. Useful for debugging.
-
-        Raises:
-           LengthError: An error ocurred
-        """
-        if not 1 <= channel <= 4:
-            raise ValueError('channel out of range')
-
-        # Receive all stream data in the in buffer
-        while 1:
-            ret = self.ser.read(1)
-            if not ret:
-                break
-            else:
-                cmd = struct.unpack('!b', ret)
-                if cmd[0] == 0x7E:
-                    self.header = []
-                    self.data = []
-                    while len(self.header) < 8:
-                        ret = self.ser.read(1)
-                        char = struct.unpack('!B', ret)
-                        if char[0] == 0x7D:
-                            ret = self.ser.read(1)
-                        self.header.append(char[0])
-                    length = self.header[3]
-                    self.data_length = length - 4
-                    while len(self.data) < self.data_length:
-                        ret = self.ser.read(1)
-                        char = struct.unpack('>B', ret)
-                        if char[0] == 0x7D:
-                            ret = self.ser.read(1)
-                            char = struct.unpack('>B', ret)
-                            tmp = char[0] | 0x20
-                            self.data.append(tmp)
-                        else:
-                            self.data.append(char[0])
-                    if check_stream_crc(self.header, self.data) != 1:
-                        continue
-                    for i in range(0, self.data_length, 2):
-                        value = (self.data[i] << 8) | self.data[i+1]
-                        if value >= 32768:
-                            value -= 65536
-                        data.append(int(value))
-                        channel.append(self.header[4]-1)
-                else:
-                    break
-        ret = self.ser.read(3)
-        ret += str(cmd[0])
-        if len(ret) != 4:
-            raise LengthError
 
     # This function reads a stream from serial connection
     # Returns 0 if there is not incoming data
@@ -1262,9 +1201,7 @@ class DAQ(threading.Thread):
         """
         Start all available experiments
         """
-        if (
-            (not self.experiments[0] is None) and
-                type(self.experiments[0]) is DAQBurst):
+        if (type(self.experiments[0]) is DAQBurst):
                     s = self.experiments[0]
                     ret1 = self.__create_burst(s.period)
                     ret2 = self.__setup_channel(
@@ -1375,8 +1312,10 @@ class DAQ(threading.Thread):
                             except:
                                 pass
                     #else:
-                    elif result == 3: #or result == 2:
+                    elif result == 3:
                         self.halt()
+                else:
+                    time.sleep(0.2)
 
             if self.stopping:
                 break
