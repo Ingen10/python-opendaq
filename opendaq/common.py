@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Copyright 2013
-# Juan Menendez <juanmb@ingen10.com> and Adrian Alvarez <alvarez@ingen10.com>
+# Ingen10 Ingenieria SL
 #
 # This file is part of opendaq.
 #
@@ -19,7 +19,6 @@
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
 import struct
-
 
 class CRCError(ValueError):
     pass
@@ -85,3 +84,7 @@ def str2hex(string):
     """Hexdump a string """
     hexstr = ["%02x" % ord(c) for c in string]
     return ' '.join(hexstr)
+
+
+
+

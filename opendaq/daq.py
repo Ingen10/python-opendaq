@@ -71,15 +71,15 @@ class DAQ(threading.Thread):
         self.debug = debug
         self.simulate = (port == 'sim')
 
-        self.running = False
+        self.__running = False
         self.measuring = False
-        self.stopping = False
+        self.__stopping = False
         self.gain = 0
         self.pinput = 1
         self.open()
 
         info = self.get_info()
-        self.hw_ver = 'm' if info[0] == 1 else 's'
+        self.__hw_ver = 'm' if info[0] == 1 else 's'
         self.gains, self.offsets = self.get_cal()
         self.dac_gain, self.dac_offset = self.get_dac_cal()
 
@@ -99,6 +99,36 @@ class DAQ(threading.Thread):
     def close(self):
         """Close the serial port"""
         self.ser.close()
+
+    def send_command2(self, command, ret_fmt):
+        fmt = '!BB' + ret_fmt
+        ret_len = 2 + struct.calcsize(fmt)
+        print "fmt:",fmt,ret_len
+        self.ser.write(command)
+        ret = self.ser.read(ret_len)
+        if self.debug:
+            print 'Command:  ',
+            for c in command:
+                print '%02X' % ord(c),
+            print
+            print 'Response: ',
+            for c in ret:
+                print '%02X' % ord(c),
+            print
+
+        if ret == NAK:
+            raise IOError("NAK response received")
+
+        data = struct.unpack(fmt, check_crc(ret))
+
+        if len(ret) != ret_len:
+            raise LengthError("Bad packet length %d (it should be %d)" %
+                              (len(ret), ret_len))
+        if data[1] != ret_len-4:
+            raise LengthError("Bad body length %d (it should be %d)" %
+                              (ret_len-4, data[1]))
+        # Strip 'command' and 'length' values from returned data
+        return data[2:]
 
     def send_command(self, cmd, ret_fmt):
         """Build a command packet, send it to the openDAQ and process the
@@ -149,7 +179,8 @@ class DAQ(threading.Thread):
         Returns:
             [hardware version, firmware version, device ID number]
         """
-        return self.send_command('\x27\x00', 'BBI')
+        #return self.send_command('\x27\x00', 'BBI')
+        return self.send_command2(mkcmd(39,''), 'BBI')
 
     def device_info(self):
         """Return device configuration
@@ -170,8 +201,8 @@ class DAQ(threading.Thread):
         Returns:
             Raw ADC value
         """
-        value = self.send_command('\x01\x00', 'h')[0]
-        return value
+        #value = self.send_command('\x01\x00', 'h')[0]
+        return self.send_command(mkcmd(1,''), 'h')[0]
 
     def read_analog(self):
         """Read data from ADC in volts
@@ -181,9 +212,9 @@ class DAQ(threading.Thread):
         """
         value = self.send_command('\x01\x00', 'h')[0]
         # Raw value to voltage->
-        index = self.gain + 1 if self.hw_ver == 'm' else self.pinput
+        index = self.gain + 1 if self.__hw_ver == 'm' else self.pinput
         value *= self.gains[index]
-        value = -value/1e5 if self.hw_ver == 'm' else value/1e4
+        value = -value/1e5 if self.__hw_ver == 'm' else value/1e4
         value = (value + self.offsets[index])/1e3
         return value
 
@@ -203,7 +234,7 @@ class DAQ(threading.Thread):
         cmd = struct.pack('!BBBB', 4, 2, nsamples, gain)
         self.gain = gain
         values = self.send_command(cmd, '8h')
-        if self.hw_ver == 'm':
+        if self.__hw_ver == 'm':
             a = -self.gains[self.gain + 1]/1e5
             b = self.offsets[self.gain + 1]
             val = [(v*a+b)/1e3 for v in values]
@@ -235,18 +266,18 @@ class DAQ(threading.Thread):
         if not 1 <= pinput <= 8:
             raise ValueError("positive input out of range")
 
-        if self.hw_ver == 'm' and ninput not in [0, 5, 6, 7, 8, 25]:
+        if self.__hw_ver == 'm' and ninput not in [0, 5, 6, 7, 8, 25]:
             raise ValueError("negative input out of range")
 
-        if self.hw_ver == 's' and ninput != 0 and (
+        if self.__hw_ver == 's' and ninput != 0 and (
             pinput % 2 == 0 and ninput != pinput - 1 or
                 pinput % 2 != 0 and ninput != pinput + 1):
                     raise ValueError("negative input out of range")
 
-        if self.hw_ver == 'm' and not 0 <= gain <= 4:
+        if self.__hw_ver == 'm' and not 0 <= gain <= 4:
             raise ValueError("gain out of range")
 
-        if self.hw_ver == 's' and not 0 <= gain <= 7:
+        if self.__hw_ver == 's' and not 0 <= gain <= 7:
             raise ValueError("gain out of range")
 
         if not 0 <= nsamples < 255:
@@ -254,7 +285,7 @@ class DAQ(threading.Thread):
 
         self.gain = gain
 
-        if self.hw_ver == 's' and ninput != 0:
+        if self.__hw_ver == 's' and ninput != 0:
             self.pinput = (pinput - 1)/2 + 9
         else:
             self.pinput = pinput
@@ -306,13 +337,13 @@ class DAQ(threading.Thread):
         """
         value = int(round(volts*1000))
 
-        if self.hw_ver == 'm' and not -4096 <= value < 4096:
+        if self.__hw_ver == 'm' and not -4096 <= value < 4096:
             raise ValueError('DAC voltage out of range')
-        elif self.hw_ver == 's' and not 0 <= value < 4096:
+        elif self.__hw_ver == 's' and not 0 <= value < 4096:
             raise ValueError('DAC voltage out of range')
 
         data = 2*(value * self.dac_gain/1000.0 + self.dac_offset + 4096)
-        if self.hw_ver == 's':
+        if self.__hw_ver == 's':
             data = max(0, min(data, 65535))  # clamp value
 
         return data
@@ -331,9 +362,9 @@ class DAQ(threading.Thread):
         Raises:
             ValueError: DAC voltage out of range
         """
-        if self.hw_ver == 'm' and not -4096 <= volts < 4096:
+        if self.__hw_ver == 'm' and not -4096 <= volts < 4096:
             raise ValueError('DAC voltage out of range')
-        elif self.hw_ver == 's' and not 0 <= volts < 4096:
+        elif self.__hw_ver == 's' and not 0 <= volts < 4096:
             raise ValueError('DAC voltage out of range')
 
         data = self.__volts_to_raw(volts)
@@ -350,8 +381,8 @@ class DAQ(threading.Thread):
             ValueError: DAC voltage out of range
         """
         value = int(round(raw))
-        if (self. hw_ver == 'm' and not 0 <= value < 16384) or (
-                self. hw_ver == 's' and not 0 <= value < 65536):
+        if (self. __hw_ver == 'm' and not 0 <= value < 16384) or (
+                self. __hw_ver == 's' and not 0 <= value < 65536):
                     raise ValueError('DAC value out of range')
 
         cmd = struct.pack('!BBH', 24, 2, value)
@@ -560,8 +591,8 @@ class DAQ(threading.Thread):
         Raises:
             ValueError: gain_id out of range
         """
-        if (self.hw_ver == 'm' and not 0 <= gain_id <= 5) or (
-                self.hw_ver == 's' and not 0 <= gain_id <= 16):
+        if (self.__hw_ver == 'm' and not 0 <= gain_id <= 5) or (
+                self.__hw_ver == 's' and not 0 <= gain_id <= 16):
                     raise ValueError("gain_id out of range")
 
         cmd = struct.pack('!BBB', 36, 1, gain_id)
@@ -579,7 +610,7 @@ class DAQ(threading.Thread):
         """
         gains = []
         offsets = []
-        _range = 6 if self.hw_ver == "m" else 17
+        _range = 6 if self.__hw_ver == "m" else 17
         for i in range(_range):
             gain_id, gain, offset = self.__get_calibration(i)
             gains.append(gain)
@@ -608,8 +639,8 @@ class DAQ(threading.Thread):
         Raises:
             ValueError: Values out of range
         """
-        if (self.hw_ver == 'm' and not 0 <= gain_id <= 5) or (
-                self.hw_ver == 's' and not 0 <= gain_id <= 16):
+        if (self.__hw_ver == 'm' and not 0 <= gain_id <= 5) or (
+                self.__hw_ver == 's' and not 0 <= gain_id <= 16):
                     raise ValueError("gain_id out of range")
 
         if not 0 <= gain < 65536:
@@ -729,18 +760,18 @@ class DAQ(threading.Thread):
         if not 0 <= pinput <= 8:
             raise ValueError('pinput out of range')
 
-        if self.hw_ver == 'm' and ninput not in [0, 5, 6, 7, 8, 25]:
+        if self.__hw_ver == 'm' and ninput not in [0, 5, 6, 7, 8, 25]:
             raise ValueError("negative input out of range")
 
-        if self.hw_ver == 's' and ninput != 0 and (
+        if self.__hw_ver == 's' and ninput != 0 and (
             pinput % 2 == 0 and ninput != pinput - 1 or
                 pinput % 2 != 0 and ninput != pinput + 1):
                     raise ValueError("negative input out of range")
 
-        if self.hw_ver == 'm' and not 0 <= gain <= 4:
+        if self.__hw_ver == 'm' and not 0 <= gain <= 4:
             raise ValueError("gain out of range")
 
-        if self.hw_ver == 's' and not 0 <= gain <= 7:
+        if self.__hw_ver == 's' and not 0 <= gain <= 7:
             raise ValueError("gain out of range")
 
         if not 0 <= nsamples < 255:
@@ -1010,7 +1041,7 @@ class DAQ(threading.Thread):
         for volts in self.preload_data:
             raw = self.__volts_to_raw(volts)
             '''
-            if self.hw_ver == "s":
+            if self.__hw_ver == "s":
                 raw *= 2'''
 
             values.append(raw)
@@ -1174,7 +1205,7 @@ class DAQ(threading.Thread):
         gain_id, pinput, ninput, number = (
             self.experiments[experiment].get_parameters())
 
-        if self.hw_ver == 'm':
+        if self.__hw_ver == 'm':
             gain = self.gains[gain_id + 1]
             offset = self.offsets[gain_id + 1]
 
@@ -1183,7 +1214,7 @@ class DAQ(threading.Thread):
             volts = -volts/1e5
             volts = (volts + offset)/1e3
 
-        if self.hw_ver == 's':
+        if self.__hw_ver == 's':
             n = pinput
             if ninput != 0:
                 n += 8
@@ -1246,7 +1277,7 @@ class DAQ(threading.Thread):
 
         self.send_command('\x40\x00', '')
 
-        if not self.running:
+        if not self.__running:
             if (
                 self.experiments[0] is None or
                     not type(self.experiments[0]) is DAQBurst):
@@ -1254,7 +1285,7 @@ class DAQ(threading.Thread):
                             threading.Thread.start(self)
                         except:
                             pass
-        self.running = True
+        self.__running = True
         self.measuring = True
         #print "Start!"
         
@@ -1263,13 +1294,13 @@ class DAQ(threading.Thread):
 
     def stop(self):
         """
-        Stop all running experiments and exit threads
+        Stop all __running experiments and exit threads
         """
         for i in range(len(self.experiments)):
             self.experiments[i] = None
         self.measuring = False
-        self.running = False
-        self.stopping = True
+        self.__running = False
+        self.__stopping = True
         while True:
             try:
                 self.send_command('\x50\x00', '')
@@ -1297,7 +1328,7 @@ class DAQ(threading.Thread):
 
     def run(self):
         while True:
-            while self.running:
+            while self.__running:
                 if self.measuring:
                     data = []
                     channel = []
@@ -1317,5 +1348,5 @@ class DAQ(threading.Thread):
                 else:
                     time.sleep(0.2)
 
-            if self.stopping:
+            if self.__stopping:
                 break

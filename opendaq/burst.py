@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Copyright 2015
-# Armando Vincelle <armando@ingen10.com>
+# Ingen10 Ingenieria SL
 #
 # This file is part of opendaq.
 #
@@ -55,9 +55,10 @@ class DAQBurst(DAQExperiment):
         self.npoints = npoints
         self.continuous = continuous
         self.mode = mode
+        self.analog_setup()
 
     def analog_setup(
-            self, pinput=1, ninput=0, gain=1, nsamples=1):
+            self, pinput=1, ninput=0, gain=1, nsamples=20):
         """
         Configure a channel for a generic stream experiment.
 

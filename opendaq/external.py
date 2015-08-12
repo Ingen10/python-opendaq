@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Copyright 2015
-# Armando Vincelle <armando@ingen10.com>
+# Ingen10 Ingenieria SL
 #
 # This file is part of opendaq.
 #
@@ -72,7 +72,7 @@ class DAQExternal(DAQExperiment):
         self.ring_buffer_start = 0
         self.ring_buffer_end = 0
         self.mutex_ring_buffer = Lock()
-
+        self.analog_setup()
         
     def analog_setup(
             self, pinput=1, ninput=0, gain=1, nsamples=1):
@@ -128,7 +128,33 @@ class DAQExternal(DAQExperiment):
         Return mode
         """
         return self.mode
-        
+
+    def get_preload_data(self):
+        """
+        Return preload_data and preload_offset
+        """
+        return self.preload_data, self.preload_offset
+
+    def load_signal(self, data, offset=0, clear=False):
+        """
+        Load an array of values in volts to preload DAC output
+
+        Args:
+            data: Total number of data points [1:400]
+            offset: Offset for each value
+            clear: If true: erase the buffer
+        Raises:
+            LengthError: Invalid dada length
+        """
+        if not 1 <= len(data) <= 400:
+            raise LengthError('Invalid data length')
+
+        if clear:
+            self.preload_data = []
+            self.preload_offset = []
+
+        self.preload_data.append(data)
+        self.preload_offset.append(offset)        
     def add_point(self, point):
         """
         Write a single point into the ring buffer
