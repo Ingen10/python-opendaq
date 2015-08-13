@@ -26,27 +26,6 @@ class DAQStream(DAQExperiment):
     def __init__(self, number, period, mode, npoints, continuous, buffersize):
         """
         Class constructor
-
-        Args:
-            number: Assign a DataChannel number for this experiment [0:3]
-            period: Period of the stream experiment
-            (milliseconds) [1:65536]
-            mode: Define data source or destination [0:5]:
-                0) ANALOG_INPUT
-                1) ANALOG_OUTPUT
-                2) DIGITAL_INPUT
-                3) DIGITAL_OUTPUT
-                4) COUNTER_INPUT
-                5) CAPTURE INPUT
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False run once
-                True continuous
-            buffersize: Buffer size
-
-        Raises:
-            ValueError: Invalid values
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -79,33 +58,6 @@ class DAQStream(DAQExperiment):
             self, pinput=1, ninput=0, gain=1, nsamples=20):
         """
         Configure a channel for a generic stream experiment.
-
-        Args:
-            pinput: Select Positive/SE analog input [1:8]
-            ninput: Select Negative analog input:
-                openDAQ[M]= [0, 5, 6, 7, 8, 25]
-                openDAQ[S]= [0,1:8] (must be 0 or pinput-1)
-            gain: Select PGA multiplier.
-                In case of openDAQ [M]:
-                    0. x1/2
-                    1. x1
-                    2. x2
-                    3. x10
-                    4. x100
-
-                In case of openDAQ [S]:
-                    0. x1
-                    1. x2
-                    2. x4
-                    3. x5
-                    4. x8
-                    5. x10
-                    6. x16
-                    7. x20
-            nsamples: Number of samples to calculate the mean for each point\
-                 [0:255].
-        Raises:
-            ValueError: Values out of range
         """
         if not 0 <= pinput <= 8:
             raise ValueError('pinput out of range')
@@ -137,16 +89,7 @@ class DAQStream(DAQExperiment):
         return self.preload_data, self.preload_offset
 
     def load_signal(self, data, offset=0, clear=False):
-        """
-        Load an array of values in volts to preload DAC output
 
-        Args:
-            data: Total number of data points [1:400]
-            offset: Offset for each value
-            clear: If true: erase the buffer
-        Raises:
-            LengthError: Invalid dada length
-        """
         if not 1 <= len(data) <= 400:
             raise ValueError('Invalid data length')
 
@@ -160,9 +103,6 @@ class DAQStream(DAQExperiment):
     def add_point(self, point):
         """
         Write a single point into the ring buffer
-
-        Args:
-            - point: Point to write into the buffer
         """
         self.mutex_ring_buffer.acquire()
 
