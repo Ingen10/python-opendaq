@@ -43,7 +43,7 @@ class DAQExternal(DAQExperiment):
                 False run once
                 True continuous
             buffersize: Buffer size
-            
+
         Raises:
             ValueError: Invalid values
         """
@@ -55,7 +55,7 @@ class DAQExternal(DAQExperiment):
 
         if type(mode) == int and not 0 <= mode <= 5:
             raise ValueError('Invalid mode')
-            
+
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
 
@@ -73,7 +73,7 @@ class DAQExternal(DAQExperiment):
         self.ring_buffer_end = 0
         self.mutex_ring_buffer = Lock()
         self.analog_setup()
-        
+
     def analog_setup(
             self, pinput=1, ninput=0, gain=1, nsamples=1):
         """
@@ -147,14 +147,15 @@ class DAQExternal(DAQExperiment):
             LengthError: Invalid dada length
         """
         if not 1 <= len(data) <= 400:
-            raise LengthError('Invalid data length')
+            raise ValueError('Invalid data length')
 
         if clear:
             self.preload_data = []
             self.preload_offset = []
 
         self.preload_data.append(data)
-        self.preload_offset.append(offset)        
+        self.preload_offset.append(offset)
+
     def add_point(self, point):
         """
         Write a single point into the ring buffer

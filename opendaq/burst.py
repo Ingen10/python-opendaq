@@ -125,11 +125,11 @@ class DAQBurst(DAQExperiment):
             LengthError: Invalid dada length
         """
         if not 1 <= len(data) <= 400:
-            raise LengthError('Invalid data length')
+            raise ValueError('Invalid data length')
 
         self.preload_data = data
         self.preload_offset = offset
-        
+
     def get_preload_data(self):
         """
         Return preload_data and preload_offset

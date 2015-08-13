@@ -14,7 +14,7 @@ dq.set_analog(1) #set a fix voltage
 #Configure the experiment
 data_rate = 200
 stream = dq.create_stream(ANALOG_INPUT, data_rate,continuous=True)
-stream.analog_setup(pinput=7, gain=GAIN_S_X1)
+stream.analog_setup(pinput=8, gain=GAIN_S_X1)
 
 #Initiate lists and variables
 t0 = 0.0

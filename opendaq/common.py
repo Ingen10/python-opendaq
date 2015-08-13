@@ -20,6 +20,7 @@
 
 import struct
 
+
 class CRCError(ValueError):
     pass
 
@@ -84,7 +85,3 @@ def str2hex(string):
     """Hexdump a string """
     hexstr = ["%02x" % ord(c) for c in string]
     return ' '.join(hexstr)
-
-
-
-

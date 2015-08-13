@@ -8,7 +8,7 @@ import time
 dq = DAQ("COM3")  # change for the Serial port in which openDAQ is connected
 
 stream1 = dq.create_stream(ANALOG_INPUT, 30, npoints=60, continuous=False)
-stream1.analog_setup(pinput=7, gain=GAIN_S_X1)
+stream1.analog_setup(pinput=8, gain=GAIN_S_X1)
 
 preload_buffer = [0.3, 1, 3.3, 2]
 

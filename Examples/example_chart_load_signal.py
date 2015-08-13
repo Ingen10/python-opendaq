@@ -12,7 +12,7 @@ dq = DAQ("COM3")
 #Configure the first experiment, the one that will be plotted
 data_rate = 20
 stream1 = dq.create_stream(ANALOG_INPUT, data_rate,continuous=True)
-stream1.analog_setup(pinput=7, gain=GAIN_S_X1)
+stream1.analog_setup(pinput=8, gain=GAIN_S_X1)
 
 #Configure the second experiment, a custom signal generated from a stream
 preload_buffer = [ -2.5, -1, 0, 1, 2.5]

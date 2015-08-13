@@ -6,7 +6,7 @@ from opendaq import *
 import time
 
 dq = DAQ("COM3") #Change  to the serial port in which openDAQ is actually connected 
-dq.conf_adc(7)#Reading in AN7
+dq.conf_adc(8)	#Reading in AN8
 
 delaytime = 0.5
 

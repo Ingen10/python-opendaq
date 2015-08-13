@@ -9,6 +9,7 @@ connections to make tests:
 
 '''
 
+
 class TestDAQFunctional(unittest.TestCase):
     def test_init(self):
         '''
@@ -110,7 +111,7 @@ class TestDAQFunctional(unittest.TestCase):
     def test_calibration(self):
         '''
         make calibration backup
-        
+
         set_daq_cal(gain, offset)
         set_cal(gains, offsets)
         test get_daq_cal() returns gain and offset
@@ -146,7 +147,7 @@ class TestDAQFunctional(unittest.TestCase):
     def test_id(self):
         '''
         make id bakup (get_info())
-        
+
         set_id(id)
         test get_info() returns right id
 

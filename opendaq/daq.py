@@ -23,8 +23,7 @@ import struct
 import time
 import serial
 import threading
-from opendaq.common import crc, check_crc, mkcmd, check_stream_crc,\
-    LengthError
+from opendaq.common import check_crc, mkcmd, check_stream_crc, LengthError
 from opendaq.simulator import DAQSimulator
 from opendaq.stream import DAQStream
 from opendaq.burst import DAQBurst
@@ -85,7 +84,7 @@ class DAQ(threading.Thread):
 
         self.experiments = [None] * 4
         self.preload_data = None
-        
+
     def open(self):
         """Open the serial port
         Configure serial port to be opened."""
@@ -100,58 +99,26 @@ class DAQ(threading.Thread):
         """Close the serial port"""
         self.ser.close()
 
-    def send_command2(self, command, ret_fmt):
-        fmt = '!BB' + ret_fmt
-        ret_len = 2 + struct.calcsize(fmt)
-        print "fmt:",fmt,ret_len
-        self.ser.write(command)
-        ret = self.ser.read(ret_len)
-        if self.debug:
-            print 'Command:  ',
-            for c in command:
-                print '%02X' % ord(c),
-            print
-            print 'Response: ',
-            for c in ret:
-                print '%02X' % ord(c),
-            print
-
-        if ret == NAK:
-            raise IOError("NAK response received")
-
-        data = struct.unpack(fmt, check_crc(ret))
-
-        if len(ret) != ret_len:
-            raise LengthError("Bad packet length %d (it should be %d)" %
-                              (len(ret), ret_len))
-        if data[1] != ret_len-4:
-            raise LengthError("Bad body length %d (it should be %d)" %
-                              (ret_len-4, data[1]))
-        # Strip 'command' and 'length' values from returned data
-        return data[2:]
-
-    def send_command(self, cmd, ret_fmt):
+    def send_command(self, command, ret_fmt):
         """Build a command packet, send it to the openDAQ and process the
         response
 
         Args:
-            cmd: Command ID
-            ret_fmt: Payload format using python 'struct' format characters
+            cmd: Command string
+            ret_fmt: Payload format of the response using python
+            'struct' format characters
         Returns:
             Command ID and arguments of the response
         Raises:
             LengthError: The legth of the response is not the expected
         """
-
-        # Add 'command' and 'length' fields to the format string
         fmt = '!BB' + ret_fmt
         ret_len = 2 + struct.calcsize(fmt)
-        packet = crc(cmd) + cmd
-        self.ser.write(packet)
+        self.ser.write(command)
         ret = self.ser.read(ret_len)
         if self.debug:
             print 'Command:  ',
-            for c in packet:
+            for c in command:
                 print '%02X' % ord(c),
             print
             print 'Response: ',
@@ -179,8 +146,7 @@ class DAQ(threading.Thread):
         Returns:
             [hardware version, firmware version, device ID number]
         """
-        #return self.send_command('\x27\x00', 'BBI')
-        return self.send_command2(mkcmd(39,''), 'BBI')
+        return self.send_command(mkcmd(39, ''), 'BBI')
 
     def device_info(self):
         """Return device configuration
@@ -188,12 +154,11 @@ class DAQ(threading.Thread):
         Returns:
             [hardware version, firmware version, device ID number]
         """
-	hv,fv,serial = self.get_info()
-	print "Hardware Version: ", "[M]" if hv==1 else "[S]"
-	print "Firmware Version:", fv
-	print "Serial number: OD"+("M08" if hv==1 else "S08")+str(serial).zfill(3)+"5"
-
-        return 
+        hv, fv, serial = self.get_info()
+        print "Hardware Version: ", "[M]" if hv == 1 else "[S]"
+        print "Firmware Version:", fv
+        print "Serial number: OD" + ("M08" if hv == 1
+                                     else "S08") + str(serial).zfill(3) + "5"
 
     def read_adc(self):
         """Read data from ADC and return the raw value
@@ -201,8 +166,7 @@ class DAQ(threading.Thread):
         Returns:
             Raw ADC value
         """
-        #value = self.send_command('\x01\x00', 'h')[0]
-        return self.send_command(mkcmd(1,''), 'h')[0]
+        return self.send_command(mkcmd(1, ''), 'h')[0]
 
     def read_analog(self):
         """Read data from ADC in volts
@@ -210,7 +174,7 @@ class DAQ(threading.Thread):
         Returns:
             Voltage value
         """
-        value = self.send_command('\x01\x00', 'h')[0]
+        value = self.send_command(mkcmd(1, ''), 'h')[0]
         # Raw value to voltage->
         index = self.gain + 1 if self.__hw_ver == 'm' else self.pinput
         value *= self.gains[index]
@@ -228,21 +192,19 @@ class DAQ(threading.Thread):
                 openDAQ[S]= [0:7] (x1,x2,x4,x5,x8,x10,x16,x20)
                 (default=1)
         Returns:
-            Values[0:7]: List of the analog reading on each input    
+            Values[0:7]: List of the analog reading on each input
         """
 
-        cmd = struct.pack('!BBBB', 4, 2, nsamples, gain)
         self.gain = gain
-        values = self.send_command(cmd, '8h')
+        values = self.send_command(mkcmd(4, 'BB', nsamples, gain), '8h')
         if self.__hw_ver == 'm':
             a = -self.gains[self.gain + 1]/1e5
             b = self.offsets[self.gain + 1]
             val = [(v*a+b)/1e3 for v in values]
         else:
             val = [(v*self.gains[i+1]/1e4+self.offsets[i+1])/1e3
-                   for i,v in enumerate(values)]
+                   for i, v in enumerate(values)]
         return val
-
 
     def conf_adc(self, pinput=8, ninput=0, gain=0, nsamples=20):
         """
@@ -290,8 +252,8 @@ class DAQ(threading.Thread):
         else:
             self.pinput = pinput
 
-        cmd = struct.pack('!BBBBBB', 2, 4, pinput, ninput, gain, nsamples)
-        self.send_command(cmd, 'hBBBB')
+        return self.send_command(mkcmd(2, 'BBBB', pinput,
+                                       ninput, gain, nsamples), 'hBBBB')
 
     def enable_crc(self, on):
         """Enable/Disable the cyclic redundancy check
@@ -304,8 +266,7 @@ class DAQ(threading.Thread):
         if on not in [0, 1]:
             raise ValueError("on value out of range")
 
-        cmd = struct.pack('!BBB', 55, 1, on)
-        self.send_command(cmd, 'B')[0]
+        return self.send_command(mkcmd(55, 'B', on), 'B')[0]
 
     def set_led(self, color):
         """Choose LED status.
@@ -318,8 +279,8 @@ class DAQ(threading.Thread):
         """
         if not 0 <= color <= 3:
             raise ValueError('Invalid color number')
-        cmd = struct.pack('!BBB', 18, 1, color)
-        self.send_command(cmd, 'B')[0]
+
+        return self.send_command(mkcmd(18, 'B', color), 'B')[0]
 
     def __volts_to_raw(self, volts):
         """Convert a value in volts to a raw value.
@@ -385,8 +346,7 @@ class DAQ(threading.Thread):
                 self. __hw_ver == 's' and not 0 <= value < 65536):
                     raise ValueError('DAC value out of range')
 
-        cmd = struct.pack('!BBH', 24, 2, value)
-        self.send_command(cmd, 'h')[0]
+        return self.send_command(mkcmd(24, 'H', value), 'h')[0]
 
     def set_port_dir(self, output):
         """Configure all PIOs directions.
@@ -400,8 +360,7 @@ class DAQ(threading.Thread):
         if not 0 <= output < 64:
             raise ValueError("output value out of range")
 
-        cmd = struct.pack('!BBB', 9, 1, output)
-        self.send_command(cmd, 'B')[0]
+        return self.send_command(mkcmd(9, 'B', output), 'B')[0]
 
     def set_port(self, value):
         """Write all PIO values
@@ -417,8 +376,7 @@ class DAQ(threading.Thread):
         if not 0 <= value < 64:
             raise ValueError("port output byte out of range")
 
-        cmd = struct.pack('!BBB', 7, 1, value)
-        return self.send_command(cmd, 'B')[0]
+        return self.send_command(mkcmd(7, 'B', value), 'B')[0]
 
     def set_pio_dir(self, number, output):
         """Configure PIO direction
@@ -436,8 +394,8 @@ class DAQ(threading.Thread):
         if output not in [0, 1]:
             raise ValueError("PIO direction out of range")
 
-        cmd = struct.pack('!BBBB', 5, 2, number,  int(bool(output)))
-        self.send_command(cmd, 'BB')
+        return self.send_command(mkcmd(5, 'BB', number,
+                                       int(bool(output))), 'BB')
 
     def set_pio(self, number, value):
         """Write PIO output value
@@ -455,8 +413,8 @@ class DAQ(threading.Thread):
         if value not in [0, 1]:
             raise ValueError("digital value out of range")
 
-        cmd = struct.pack('!BBBB', 3, 2, number, int(bool(value)))
-        self.send_command(cmd, 'BB')
+        return self.send_command(mkcmd(3, 'BB', number,
+                                       int(bool(value))), 'BB')
 
     def init_counter(self, edge):
         """Initialize the edge Counter
@@ -470,8 +428,7 @@ class DAQ(threading.Thread):
         if edge not in [0, 1]:
             raise ValueError("edge value out of range")
 
-        cmd = struct.pack('!BBB', 41, 1, edge)
-        self.send_command(cmd, 'B')[0]
+        return self.send_command(mkcmd(41, 'B', edge), 'B')[0]
 
     def get_counter(self, reset):
         """Get the counter value
@@ -484,8 +441,7 @@ class DAQ(threading.Thread):
         if not 0 <= reset <= 255:
             raise ValueError("reset value out of range")
 
-        cmd = struct.pack('!BBB', 42, 1, reset)
-        return self.send_command(cmd, 'H')[0]
+        return self.send_command(mkcmd(42, 'B', reset), 'H')[0]
 
     def init_capture(self, period):
         """Start Capture mode around a given period
@@ -498,13 +454,12 @@ class DAQ(threading.Thread):
         if not 0 <= period <= 65535:
             raise ValueError("period out of range")
 
-        cmd = struct.pack('!BBH', 14, 2, period)
-        return self.send_command(cmd, 'H')[0]
+        return self.send_command(mkcmd(14, 'H', period), 'H')[0]
 
     def stop_capture(self):
         """Stop Capture mode
         """
-        self.send_command('\x0F\x00', '')
+        self.send_command(mkcmd(15, ''), '')
 
     def get_capture(self, mode):
         """Get Capture reading for the period length
@@ -515,6 +470,7 @@ class DAQ(threading.Thread):
                 1: High cycle
                 2: Full period
         Returns:
+            mode
             Period: The period length in microseconds
         Raises:
             ValueError: mode value out of range
@@ -522,8 +478,7 @@ class DAQ(threading.Thread):
         if mode not in [0, 1, 2]:
             raise ValueError("mode value out of range")
 
-        cmd = struct.pack('!BBB', 16, 1, mode)
-        return self.send_command(cmd, 'BH')
+        return self.send_command(mkcmd(16, 'B', mode), 'BH')
 
     def init_encoder(self, resolution):
         """Start Encoder function
@@ -536,8 +491,7 @@ class DAQ(threading.Thread):
         if not 0 <= resolution <= 65535:
             raise ValueError("resolution value out of range")
 
-        cmd = struct.pack('!BBB', 50, 1, resolution)
-        return self.send_command(cmd, 'B')[0]
+        return self.send_command(mkcmd(50, 'B', resolution), 'B')[0]
 
     def get_encoder(self):
         """Get current encoder relative position
@@ -545,11 +499,11 @@ class DAQ(threading.Thread):
         Returns:
             Position: The actual encoder value.
         """
-        return self.send_command('\x34\x00', 'H')
+        return self.send_command(mkcmd(52, ''), 'H')[0]
 
     def stop_encoder(self):
         """Stop encoder"""
-        self.send_command('\x33\x00', '')
+        self.send_command(mkcmd(51, ''), '')
 
     def init_pwm(self, duty, period):
         """Start PWM output with a given period and duty cycle
@@ -567,12 +521,11 @@ class DAQ(threading.Thread):
         if not 0 <= period <= 65535:
             raise ValueError("period value out of range")
 
-        cmd = struct.pack('!BBHH', 10, 4, duty, period)
-        return self.send_command(cmd, 'HH')
+        return self.send_command(mkcmd(10, 'HH', duty, period), 'HH')
 
     def stop_pwm(self):
         """Stop PWM"""
-        self.send_command('\x0b\x00', '')
+        self.send_command(mkcmd(11, ''), '')
 
     def __get_calibration(self, gain_id):
         """
@@ -586,6 +539,7 @@ class DAQ(threading.Thread):
             (0:5 for openDAQ [M])
             (0:16 for openDAQ [S])
         Returns:
+            gain_id
             Gain (x100000[M] or x10000[S])
             Offset
         Raises:
@@ -595,8 +549,7 @@ class DAQ(threading.Thread):
                 self.__hw_ver == 's' and not 0 <= gain_id <= 16):
                     raise ValueError("gain_id out of range")
 
-        cmd = struct.pack('!BBB', 36, 1, gain_id)
-        return self.send_command(cmd, 'BHh')
+        return self.send_command(mkcmd(36, 'B', gain_id), 'BHh')
 
     def get_cal(self):
         """
@@ -649,8 +602,8 @@ class DAQ(threading.Thread):
         if not -32768 <= offset < 32768:
             raise ValueError("offset out of range")
 
-        cmd = struct.pack('!BBBHh', 37, 5, gain_id, gain, offset)
-        return self.send_command(cmd, 'BHh')
+        return self.send_command(mkcmd(37, 'BHh', gain_id,
+                                       gain, offset), 'BHh')
 
     def set_cal(self, gains, offsets, flag):
         """
@@ -777,9 +730,8 @@ class DAQ(threading.Thread):
         if not 0 <= nsamples < 255:
             raise ValueError("samples number out of range")
 
-        cmd = struct.pack('!BBBBBBBB', 22, 6, number, mode,
-                          pinput, ninput, gain, nsamples)
-        return self.send_command(cmd, 'BBBBBB')
+        return self.send_command(mkcmd(22, 'BBBBBB', number, mode, pinput,
+                                       ninput, gain, nsamples), 'BBBBBB')
 
     def __setup_channel(self, number, npoints, continuous=False):
         """
@@ -807,8 +759,8 @@ class DAQ(threading.Thread):
             else:
                 continuous = True
 
-        cmd = struct.pack('!BBBHb', 32, 4, number, npoints, int(continuous))
-        return self.send_command(cmd, 'BHB')
+        return self.send_command(mkcmd(32, 'BHb', number,
+                                       npoints, int(continuous)), 'BHB')
 
     def destroy_channel(self, number):
         """
@@ -822,8 +774,8 @@ class DAQ(threading.Thread):
         """
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
-        cmd = struct.pack('!BBB', 57, 1, number)
-        return self.send_command(cmd, 'B')
+
+        return self.send_command(mkcmd(57, 'B', number), 'B')[0]
 
     def __create_stream(self, number, period):
         """
@@ -841,8 +793,7 @@ class DAQ(threading.Thread):
         if not 1 <= period <= 65535:
             raise ValueError('Invalid period')
 
-        cmd = struct.pack('!BBBH', 19, 3, number, period)
-        return self.send_command(cmd, 'BH')
+        return self.send_command(mkcmd(19, 'BH', number, period), 'BH')
 
     def create_stream(
             self, mode, period, npoints=10, continuous=False, buffersize=1000):
@@ -886,10 +837,10 @@ class DAQ(threading.Thread):
                 raise LengthError('Only 1 burst available at a time')
 
         for i in range(len(self.experiments)):
-            if self.experiments[i] == None:
+            if self.experiments[i] is None:
                 break
 
-        if i == 3 and self.experiments[i] != None:
+        if i == 3 and self.experiments[i] is not None:
             raise LengthError('Only 4 experiments available at a time')
 
         self.experiments[i] = DAQStream(
@@ -932,7 +883,8 @@ class DAQ(threading.Thread):
 
         for i in range(len(self.experiments)):
             if not self.experiments[i] is None:
-                raise LengthError('Only 1 burst available at a time')
+                raise ValueError(
+                    'Only 1 experiment available at a time if using burst')
 
         self.experiments[0] = DAQBurst(period, mode, npoints, continuous)
         return self.experiments[0]
@@ -950,8 +902,7 @@ class DAQ(threading.Thread):
         if not 100 <= period <= 65535:
             raise ValueError('Invalid period')
 
-        cmd = struct.pack('!BBH', 21, 2, period)
-        return self.send_command(cmd, 'H')
+        return self.send_command(mkcmd(21, 'H', period), 'H')
 
     def create_external(
             self, mode, clock_input, edge=1, npoints=10, continuous=False,
@@ -1000,7 +951,7 @@ class DAQ(threading.Thread):
             if type(self.experiments[i]) is DAQBurst:
                 raise LengthError('Only 1 burst available at a time')
 
-        if self.experiments[clock_input-1] != None:
+        if self.experiments[clock_input-1] is not None:
             raise ValueError('clock_input is taken')
 
         i = clock_input - 1
@@ -1024,8 +975,7 @@ class DAQ(threading.Thread):
         if edge not in [0, 1]:
             raise ValueError('Invalid edge')
 
-        cmd = struct.pack('!BBBB', 20, 2, number, edge)
-        return self.send_command(cmd, 'BB')
+        return self.send_command(mkcmd(20, 'BB', number, edge), 'BB')
 
     def __load_signal(self):
         """
@@ -1046,17 +996,14 @@ class DAQ(threading.Thread):
 
             values.append(raw)
 
-        cmd = struct.pack(
-            '!bBh%dH' % len(values), 23, len(values) * 2 + 2,
-            self.preload_offset, *values)
-        return self.send_command(cmd, 'Bh')
+        return self.send_command(mkcmd(23, 'h%dH' % len(values),
+                                       self.preload_offset, *values), 'Bh')
 
     def flush(self):
         """
         Flush internal buffers
         """
         self.ser.flushInput()
-
 
     # This function reads a stream from serial connection
     # Returns 0 if there is not incoming data
@@ -1132,8 +1079,7 @@ class DAQ(threading.Thread):
         if not 0 <= id < 1000:
             raise ValueError('id out of range')
 
-        cmd = struct.pack('!BBI', 39, 4, id)
-        return self.send_command(cmd, 'bbI')
+        return self.send_command(mkcmd(39, 'I', id), 'bbI')
 
     def spi_config(self, cpol, cpha):
         """Bit-Bang SPI configure (clock properties)
@@ -1146,8 +1092,8 @@ class DAQ(threading.Thread):
         """
         if not 0 <= cpol <= 1 or not 0 <= cpha <= 1:
             raise ValueError('Invalid spisw_config values')
-        cmd = struct.pack('!BBB', 26, 2, cpol, cpha)
-        return self.send_command(cmd, 'BB')
+
+        return self.send_command(mkcmd(26, 'BB', cpol, cpha), 'BB')
 
     def spi_setup(self, nbytes, sck=1, mosi=2, miso=3):
         """Bit-Bang SPI setup (PIO numbers to use)
@@ -1164,8 +1110,8 @@ class DAQ(threading.Thread):
             raise ValueError('Invalid number of bytes')
         if not 1 <= sck <= 6 or not 1 <= mosi <= 6 or not 1 <= miso <= 6:
             raise ValueError('Invalid spisw_setup values')
-        cmd = struct.pack('!BBBBB', 28, 3, sck, mosi, miso)
-        return self.send_command(cmd, 'BBB')
+
+        return self.send_command(mkcmd(28, 'BBB', sck, mosi, miso), 'BBB')
 
     def spi_write(self, value, word=False):
         """Bit-bang SPI transfer (send+receive) a byte or a word
@@ -1180,11 +1126,9 @@ class DAQ(threading.Thread):
             raise ValueError("value out of range")
 
         if word:
-            cmd = struct.pack('!BBH', 29, 2, value)
-            ret = self.send_command(cmd, 'H')[0]
+            ret = self.send_command(mkcmd(29, 'H', value), 'H')[0]
         else:
-            cmd = struct.pack('!BBB', 29, 1, value)
-            ret = self.send_command(cmd, 'B')[0]
+            ret = self.send_command(mkcmd(29, 'B', value), 'B')[0]
         return ret
 
     def is_measuring(self):
@@ -1227,19 +1171,16 @@ class DAQ(threading.Thread):
 
         return volts
 
-                
     def start(self):
         """
         Start all available experiments
         """
         if (type(self.experiments[0]) is DAQBurst):
                     s = self.experiments[0]
-                    ret1 = self.__create_burst(s.period)
-                    ret2 = self.__setup_channel(
-                        s.number, s.npoints, s.continuous)
-                    ret3 = self.__conf_channel(
-                            s.number, s.mode, s.pinput, s.ninput, s.gain,
-                            s.nsamples)
+                    self.__create_burst(s.period)
+                    self.__setup_channel(s.number, s.npoints, s.continuous)
+                    self.__conf_channel(s.number, s.mode, s.pinput,
+                                        s.ninput, s.gain, s.nsamples)
         else:
             for s in self.experiments:
                 if s is None:
@@ -1257,17 +1198,17 @@ class DAQ(threading.Thread):
                 if s is None:
                     continue
                 if type(s) is DAQStream:
-                    ret1 = self.__create_stream(s.number, s.period)
+                    self.__create_stream(s.number, s.period)
                 else:  # External
-                    ret1 = self.__create_external(s.number, s.edge)
+                    self.__create_external(s.number, s.edge)
 
-                ret2 = self.__setup_channel(s.number, s.npoints, s.continuous)
-                ret3 = self.__conf_channel(
-                    s.number, s.mode, s.pinput, s.ninput, s.gain, s.nsamples)
+                self.__setup_channel(s.number, s.npoints, s.continuous)
+                self.__conf_channel(s.number, s.mode, s.pinput,
+                                    s.ninput, s.gain, s.nsamples)
 
         for exp in self.experiments:
-            if (type(exp) in (DAQStream, DAQBurst) and
-                exp.get_mode() == ANALOG_OUTPUT):
+            if (type(exp) in (DAQStream, DAQBurst)
+                    and exp.get_mode() == ANALOG_OUTPUT):
                 pr_data, pr_offset = exp.get_preload_data()
                 for i in range(len(pr_data)):
                     self.preload_data = pr_data[i]
@@ -1275,7 +1216,7 @@ class DAQ(threading.Thread):
                     self.__load_signal()
                 break
 
-        self.send_command('\x40\x00', '')
+        self.send_command(mkcmd(64, ''), '')
 
         if not self.__running:
             if (
@@ -1287,10 +1228,7 @@ class DAQ(threading.Thread):
                             pass
         self.__running = True
         self.measuring = True
-        #print "Start!"
-        
-
-                    
+        # print "Start!"
 
     def stop(self):
         """
@@ -1303,24 +1241,23 @@ class DAQ(threading.Thread):
         self.__stopping = True
         while True:
             try:
-                self.send_command('\x50\x00', '')
+                self.send_command(mkcmd(80, ''), '')
                 break
             except:
                 time.sleep(0.2)
                 self.flush()
-        #print "stop(): goodbye!"
+        # print "stop(): goodbye!"
 
-        
-    def halt(self, clear = False):
+    def halt(self, clear=False):
         self.measuring = False
-        #print "halt:_not_measuring"
+        # print "halt:_not_measuring"
         if clear:
-            #print "halt:experiments_cleared"
+            # print "halt:experiments_cleared"
             for i in range(len(self.experiments)):
                 self.experiments[i] = None
         while True:
             try:
-                self.send_command('\x50\x00', '')
+                self.send_command(mkcmd(80, ''), '')
                 break
             except:
                 time.sleep(0.2)
@@ -1333,7 +1270,7 @@ class DAQ(threading.Thread):
                     data = []
                     channel = []
                     result = self.get_stream(data, channel)
-                    #print "result:",result
+                    # print "result:",result
                     if result == 1:
                         # data available
                         for i in range(len(data)):
@@ -1342,7 +1279,6 @@ class DAQ(threading.Thread):
                                     self.__raw_to_volts(data[i], channel[i]))
                             except:
                                 pass
-                    #else:
                     elif result == 3:
                         self.halt()
                 else:

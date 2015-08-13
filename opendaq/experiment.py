@@ -19,7 +19,7 @@
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta  # , abstractmethod
 
 
 class DAQExperiment:

@@ -148,7 +148,7 @@ class DAQStream(DAQExperiment):
             LengthError: Invalid dada length
         """
         if not 1 <= len(data) <= 400:
-            raise LengthError('Invalid data length')
+            raise ValueError('Invalid data length')
 
         if clear:
             self.preload_data = []
