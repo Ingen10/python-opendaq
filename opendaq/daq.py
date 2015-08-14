@@ -780,7 +780,7 @@ class DAQ(threading.Thread):
         self.__destroy_channel(nb)
         for i in range(len(self.experiments))[::-1]:
             if self.experiments[i].number == nb:
-                del(self.experiments[i])
+                self.experiments[i] = None
         
     def clear_experiments(self):
         """
@@ -791,7 +791,27 @@ class DAQ(threading.Thread):
         """
         for i in range(len(self.experiments))[::-1]:
             self.__destroy_channel(i+1)
-            del(self.experiments[i])
+            self.experiments[i] = None
+
+    def dchanindex(self):
+        """
+        Check which internal DataChannels are used or available
+
+        Args:
+            None
+        Returns:
+            available: list of free DataChannels
+            used: list of asigned DataChannels
+        """
+        used = []
+        available = []
+        for i in range(len(self.experiments)):
+            if self.experiments[i] is not None:
+                used.append(self.experiments[i].number)
+        for i in range(1,5):
+            if i not in used:    
+                available.append(i)
+        return available, used
             
     def __destroy_channel(self, number):
         """
@@ -834,19 +854,23 @@ class DAQ(threading.Thread):
             ValueError: Values out of range
         """
 
-        if type(self.experiments[0]) is DAQBurst:
+        available, used = self.dchanindex()
+
+        index = len(used)
+        
+        if index>0 and type(self.experiments[0]) is DAQBurst:
             raise LengthError('Device is configured for a Burst experiment')
 
-        for i in range(len(self.experiments)):
-            if self.experiments[i] is None:
-                break
-
-        if i == 3 and self.experiments[i] is not None:
+        if len(available) == 0:
             raise LengthError('Only 4 experiments available at a time')
 
-        self.experiments[i] = DAQStream(mode, i+1, period,
-                                        npoints, continuous, buffersize)
-        return self.experiments[i]
+        chan = available[0]
+        print "creating exp",chan
+
+        print "index ",index        
+        self.experiments[index] = DAQStream(mode, chan, period,
+                                            npoints, continuous, buffersize)
+        return self.experiments[index]
 
     def __create_stream(self, number, period):
         """
@@ -893,16 +917,27 @@ class DAQ(threading.Thread):
             LengthError: Too much experiments at a time
             ValueError: Values out of range
         """
-        if type(self.experiments[0]) is DAQBurst:
+        available, used = self.dchanindex()
+
+        index = len(used)
+        
+        if index>0 and type(self.experiments[0]) is DAQBurst:
             raise LengthError('Device is configured for a Burst experiment')
 
-        if self.experiments[clock_input-1] is not None:
-            raise ValueError('Clock_input is being used by another experiment')
+        if len(available) == 0:
+            raise LengthError('Only 4 experiments available at a time')
 
-        i = clock_input - 1
-        self.experiments[i] = DAQExternal(mode, clock_input, edge,
+        for i in range(index):
+            if self.experiments[i].number == clock_input:
+                if type(self.experiments[i]) is DAQStream:
+                    self.experiments[i].number=available[0]
+                else:
+                    raise ValueError(
+                        'Clock_input is being used by another experiment')
+
+        self.experiments[index] = DAQExternal(mode, clock_input, edge,
                                           npoints, continuous, buffersize)
-        return self.experiments[i]
+        return self.experiments[index]
 
     def __create_external(self, number, edge):
         """
@@ -947,8 +982,7 @@ class DAQ(threading.Thread):
             ValueError: Values out of range
         """
 
-        for i in range(len(self.experiments)):
-            if not self.experiments[i] is None:
+        if len(self.experiments) > 0:
                 raise ValueError(
                     'Only 1 experiment available at a time if using burst')
 
@@ -1236,13 +1270,10 @@ class DAQ(threading.Thread):
             except:
                 time.sleep(0.2)
                 self.flush()
-        # print "stop(): goodbye!"
 
     def halt(self, clear=False):
         self.measuring = False
-        # print "halt:_not_measuring"
         if clear:
-            # print "halt:experiments_cleared"
             for i in range(len(self.experiments)):
                 self.experiments[i] = None
         while True:
@@ -1260,7 +1291,6 @@ class DAQ(threading.Thread):
                     data = []
                     channel = []
                     result = self.get_stream(data, channel)
-                    # print "result:",result
                     if result == 1:
                         # data available
                         for i in range(len(data)):
