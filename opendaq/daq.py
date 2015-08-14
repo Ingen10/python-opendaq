@@ -160,6 +160,9 @@ class DAQ(threading.Thread):
         print "Serial number: OD" + ("M08" if hv == 1
                                      else "S08") + str(serial).zfill(3) + "5"
 
+    def hw_ver(self):
+        return self.__hw_ver
+
     def read_adc(self):
         """Read data from ADC and return the raw value
 
@@ -762,9 +765,37 @@ class DAQ(threading.Thread):
         return self.send_command(mkcmd(32, 'BHb', number,
                                        npoints, int(continuous)), 'BHB')
 
-    def destroy_channel(self, number):
+    def remove_experiment(self, oldtask):
         """
-        Delete Datachannel structure
+        Delete a single experiment
+
+        Args:
+            oldtask: reference of the experiment to remove
+        Raises:
+            ValueError: Invalid reference
+        """
+        nb = oldtask.get_parameters()[3]
+        if not 1 <= nb <= 4:
+            raise ValueError('Invalid reference')
+        self.__destroy_channel(nb)
+        for i in range(len(self.experiments))[::-1]:
+            if self.experiments[i].number == nb:
+                del(self.experiments[i])
+        
+    def clear_experiments(self):
+        """
+        Delete the whole experiment list
+
+        Args:
+            None
+        """
+        for i in range(len(self.experiments))[::-1]:
+            self.__destroy_channel(i+1)
+            del(self.experiments[i])
+            
+    def __destroy_channel(self, number):
+        """
+        Command firmware to clear a Datachannel structure
 
         Args:
             number: Number of DataChannel structure to clear
@@ -776,24 +807,6 @@ class DAQ(threading.Thread):
             raise ValueError('Invalid number')
 
         return self.send_command(mkcmd(57, 'B', number), 'B')[0]
-
-    def __create_stream(self, number, period):
-        """
-        Create Stream experiment
-
-        Args:
-            number: Assign a DataChannel number for this experiment [1:4]
-            period: Period of the stream experiment
-            (milliseconds) [1:65536]
-        Raises:
-            ValueError: Invalid values
-        """
-        if not 1 <= number <= 4:
-            raise ValueError('Invalid number')
-        if not 1 <= period <= 65535:
-            raise ValueError('Invalid period')
-
-        return self.send_command(mkcmd(19, 'BH', number, period), 'BH')
 
     def create_stream(
             self, mode, period, npoints=10, continuous=False, buffersize=1000):
@@ -817,24 +830,12 @@ class DAQ(threading.Thread):
                 True continuous
             buffersize: Buffer size
         Raises:
-            LengthError: Too much experiments at a time
+            LengthError: Too many experiments at the same time
             ValueError: Values out of range
         """
-        if not 1 <= period <= 65535:
-            raise ValueError('Invalid period')
 
-        if type(mode) == int and not 0 <= mode <= 5:
-            raise ValueError('Invalid mode')
-
-        if not 0 <= npoints < 65536:
-            raise ValueError('npoints out of range')
-
-        if not 1 <= buffersize <= 20000:
-            raise ValueError('Invalid buffer size')
-
-        for i in range(len(self.experiments)):
-            if type(self.experiments[i]) is DAQBurst:
-                raise LengthError('Only 1 burst available at a time')
+        if type(self.experiments[0]) is DAQBurst:
+            raise LengthError('Device is configured for a Burst experiment')
 
         for i in range(len(self.experiments)):
             if self.experiments[i] is None:
@@ -843,70 +844,30 @@ class DAQ(threading.Thread):
         if i == 3 and self.experiments[i] is not None:
             raise LengthError('Only 4 experiments available at a time')
 
-        self.experiments[i] = DAQStream(
-            i+1, period, mode, npoints, continuous, buffersize)
+        self.experiments[i] = DAQStream(mode, i+1, period,
+                                        npoints, continuous, buffersize)
         return self.experiments[i]
 
-    def create_burst(
-            self, mode, period, npoints=10, continuous=False):
+    def __create_stream(self, number, period):
         """
-        Create Burst experiment
+        Send a command to the firmware to create Stream experiment
 
         Args:
-            mode: Define data source or destination [0:5]:
-                0) ANALOG_INPUT
-                1) ANALOG_OUTPUT
-                2) DIGITAL_INPUT
-                3) DIGITAL_OUTPUT
-                4) COUNTER_INPUT
-                5) CAPTURE_INPUT
+            number: Assign a DataChannel number for this experiment [1:4]
             period: Period of the stream experiment
             (milliseconds) [1:65536]
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False run once
-                True continuous
         Raises:
-            LengthError: Only 1 burst experiment available at a time
-            ValueError: Values out of range
+            ValueError: Invalid values
         """
-
+        if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
         if not 1 <= period <= 65535:
             raise ValueError('Invalid period')
 
-        if type(mode) == int and not 0 <= mode <= 5:
-            raise ValueError('Invalid mode')
+        return self.send_command(mkcmd(19, 'BH', number, period), 'BH')
 
-        if not 0 <= npoints < 65536:
-            raise ValueError('npoints out of range')
-
-        for i in range(len(self.experiments)):
-            if not self.experiments[i] is None:
-                raise ValueError(
-                    'Only 1 experiment available at a time if using burst')
-
-        self.experiments[0] = DAQBurst(period, mode, npoints, continuous)
-        return self.experiments[0]
-
-    def __create_burst(self, period):
-        """
-        Create Burst experiment
-
-        Args:
-            period: Period of the burst experiment
-            (microseconds) [100:65535]
-        Raises:
-            ValueError: Invalid period
-        """
-        if not 100 <= period <= 65535:
-            raise ValueError('Invalid period')
-
-        return self.send_command(mkcmd(21, 'H', period), 'H')
-
-    def create_external(
-            self, mode, clock_input, edge=1, npoints=10, continuous=False,
-            buffersize=1000):
+    def create_external(self, mode, clock_input, edge=1, npoints=10,
+                        continuous=False, buffersize=1000):
         """
         Create External experiment
 
@@ -932,36 +893,20 @@ class DAQ(threading.Thread):
             LengthError: Too much experiments at a time
             ValueError: Values out of range
         """
-        if not 1 <= clock_input <= 4:
-            raise ValueError('Invalid clock_input')
-
-        if edge not in [0, 1]:
-            raise ValueError('Invalid edge')
-
-        if type(mode) == int and not 0 <= mode <= 5:
-            raise ValueError('Invalid mode')
-
-        if not 0 <= npoints < 65536:
-            raise ValueError('npoints out of range')
-
-        if not 1 <= buffersize <= 20000:
-            raise ValueError('Invalid buffer size')
-
-        for i in range(len(self.experiments)):
-            if type(self.experiments[i]) is DAQBurst:
-                raise LengthError('Only 1 burst available at a time')
+        if type(self.experiments[0]) is DAQBurst:
+            raise LengthError('Device is configured for a Burst experiment')
 
         if self.experiments[clock_input-1] is not None:
-            raise ValueError('clock_input is taken')
+            raise ValueError('Clock_input is being used by another experiment')
 
         i = clock_input - 1
-        self.experiments[i] = DAQExternal(
-            i+1, edge, mode, npoints, continuous, buffersize)
+        self.experiments[i] = DAQExternal(mode, clock_input, edge,
+                                          npoints, continuous, buffersize)
         return self.experiments[i]
 
     def __create_external(self, number, edge):
         """
-        Create External experiment
+        Send a command to the firmware to create External experiment
 
         Args:
             number: Assign a DataChannel number for this experiment [1:4]
@@ -976,6 +921,55 @@ class DAQ(threading.Thread):
             raise ValueError('Invalid edge')
 
         return self.send_command(mkcmd(20, 'BB', number, edge), 'BB')
+
+    def create_burst(self, mode, period,
+                     npoints=10, continuous=False, buffersize=4000):
+        """
+        Create Burst experiment
+
+        Args:
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            period: Period of the stream experiment
+            (milliseconds) [1:65536]
+            npoints: Total number of points for the experiment
+            [0:65536] (0 indicates continuous acquisition)
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+        Raises:
+            LengthError: Only 1 burst experiment available at a time
+            ValueError: Values out of range
+        """
+
+        for i in range(len(self.experiments)):
+            if not self.experiments[i] is None:
+                raise ValueError(
+                    'Only 1 experiment available at a time if using burst')
+
+        self.experiments[0] = DAQBurst(mode, period, npoints,
+                                       continuous, buffersize)
+        return self.experiments[0]
+
+    def __create_burst(self, period):
+        """
+        Send a command to the firmware to create Burst experiment
+
+        Args:
+            period: Period of the burst experiment
+            (microseconds) [100:65535]
+        Raises:
+            ValueError: Invalid period
+        """
+        if not 100 <= period <= 65535:
+            raise ValueError('Invalid period')
+
+        return self.send_command(mkcmd(21, 'H', period), 'H')
 
     def __load_signal(self):
         """
@@ -1005,10 +999,6 @@ class DAQ(threading.Thread):
         """
         self.ser.flushInput()
 
-    # This function reads a stream from serial connection
-    # Returns 0 if there is not incoming data
-    # Returns 1 if data stream was precessed
-    # Returns 2 if no data stream was received (useful for debugging)
     def get_stream(self, data, channel):
         """Get stream from serial connection
 

@@ -18,12 +18,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
-from threading import Lock
 from opendaq.experiment import DAQExperiment
-
+from collections import deque
 
 class DAQStream(DAQExperiment):
-    def __init__(self, number, period, mode, npoints, continuous, buffersize):
+    def __init__(self, mode, number, period, npoints, continuous, buffersize):
         """
         Class constructor
         """
@@ -47,11 +46,8 @@ class DAQStream(DAQExperiment):
         self.mode = mode
         self.npoints = npoints
         self.continuous = continuous
-        self.ring_buffer_size = buffersize + 1
-        self.ring_buffer = [None] * self.ring_buffer_size
-        self.ring_buffer_start = 0
-        self.ring_buffer_end = 0
-        self.mutex_ring_buffer = Lock()
+        
+        self.ring_buffer = deque(maxlen=buffersize)
         self.analog_setup()
 
     def analog_setup(
@@ -104,38 +100,12 @@ class DAQStream(DAQExperiment):
         """
         Write a single point into the ring buffer
         """
-        self.mutex_ring_buffer.acquire()
-
-        self.ring_buffer[self.ring_buffer_end] = point
-        self.ring_buffer_end += 1
-        if self.ring_buffer_end >= self.ring_buffer_size:
-            self.ring_buffer_end = 0
-
-        if self.ring_buffer_end == self.ring_buffer_start:
-            self.ring_buffer_end -= 1
-        if self.ring_buffer_end < 0:
-            self.ring_buffer_end = self.ring_buffer_size-1
-
-        self.mutex_ring_buffer.release()
+        self.ring_buffer.append(point)
 
     def read(self):
         """
         Return all available points from the ring buffer
         """
-        buffer = []
-        self.mutex_ring_buffer.acquire()
-
-        if self.ring_buffer_start < self.ring_buffer_end:
-            for i in range(self.ring_buffer_start, self.ring_buffer_end):
-                buffer.append(self.ring_buffer[i])
-
-        if self.ring_buffer_start > self.ring_buffer_end:
-            for i in range(self.ring_buffer_start, self.ring_buffer_size):
-                buffer.append(self.ring_buffer[i])
-
-            for i in range(0, self.ring_buffer_end):
-                buffer.append(self.ring_buffer[i])
-
-        self.ring_buffer_start = self.ring_buffer_end = 0
-        self.mutex_ring_buffer.release()
-        return buffer
+        ret = list(self.ring_buffer)
+        self.ring_buffer.clear()
+        return ret
