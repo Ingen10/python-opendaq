@@ -82,7 +82,7 @@ class DAQ(threading.Thread):
         self.gains, self.offsets = self.get_cal()
         self.dac_gain, self.dac_offset = self.get_dac_cal()
 
-        self.experiments = [] #[None] * 4
+        self.experiments = [] 
         self.preload_data = None
 
     def open(self):
@@ -657,6 +657,105 @@ class DAQ(threading.Thread):
 
         self.__set_calibration(0, gain, offset)
 
+    def __raw_to_volts(self, raw, experiment):
+        """Convert a raw value to a value in volts.
+
+        Args:
+            raw: Value to convert to volts
+            experiment: DataChannel number of this experiment
+        """
+        if not 0 <= experiment <= 3:
+            raise ValueError('Invalid experiment number')
+
+        gain_id, pinput, ninput, number = (
+            self.experiments[experiment].get_parameters())
+
+        if self.__hw_ver == 'm':
+            gain = self.gains[gain_id + 1]
+            offset = self.offsets[gain_id + 1]
+
+            volts = float(raw)
+            volts *= gain
+            volts = -volts/1e5
+            volts = (volts + offset)/1e3
+
+        if self.__hw_ver == 's':
+            n = pinput
+            if ninput != 0:
+                n += 8
+
+            gain = self.gains[n]
+            offset = self.offsets[n]
+            volts = ((float(raw * gain))/1e4 + offset)
+            volts /= MULTIPLIER_LIST[gain_id]
+            volts /= 1000.0
+
+        return volts
+
+    def set_id(self, id):
+        """
+        Identify openDAQ device
+
+        Args:
+            id: id number of the device [000:999]
+        Raises:
+            ValueError: id out of range
+        """
+        if not 0 <= id < 1000:
+            raise ValueError('id out of range')
+
+        return self.send_command(mkcmd(39, 'I', id), 'bbI')
+
+    def spi_config(self, cpol, cpha):
+        """Bit-Bang SPI configure (clock properties)
+
+        Args:
+            cpol: Clock polarity (clock pin state when inactive)
+            cpha: Clock phase (leading 0, or trailing 1 edges read)
+        Raises:
+            ValueError: Invalid spisw_config values
+        """
+        if not 0 <= cpol <= 1 or not 0 <= cpha <= 1:
+            raise ValueError('Invalid spisw_config values')
+
+        return self.send_command(mkcmd(26, 'BB', cpol, cpha), 'BB')
+
+    def spi_setup(self, nbytes, sck=1, mosi=2, miso=3):
+        """Bit-Bang SPI setup (PIO numbers to use)
+
+        Args:
+            nbytes: Number of bytes
+            sck: Clock pin
+            mosi: MOSI pin (master out / slave in)
+            miso: MISO pin (master in / slave out)
+        Raises:
+            ValueError: Invalid values
+        """
+        if not 0 <= nbytes <= 3:
+            raise ValueError('Invalid number of bytes')
+        if not 1 <= sck <= 6 or not 1 <= mosi <= 6 or not 1 <= miso <= 6:
+            raise ValueError('Invalid spisw_setup values')
+
+        return self.send_command(mkcmd(28, 'BBB', sck, mosi, miso), 'BBB')
+
+    def spi_write(self, value, word=False):
+        """Bit-bang SPI transfer (send+receive) a byte or a word
+
+        Args:
+            value: Data to send (byte/word to transmit)
+            word: send a 2-byte word, instead of a byte
+        Raises:
+            ValueError: Value out of range
+        """
+        if not 0 <= value <= 65535:
+            raise ValueError("value out of range")
+
+        if word:
+            ret = self.send_command(mkcmd(29, 'H', value), 'H')[0]
+        else:
+            ret = self.send_command(mkcmd(29, 'B', value), 'B')[0]
+        return ret
+
     def __conf_channel(
             self, number, mode, pinput=1, ninput=0, gain=1, nsamples=1):
         """
@@ -756,25 +855,19 @@ class DAQ(threading.Thread):
         if not 0 <= npoints < 65536:
             raise ValueError('npoints out of range')
 
-        if continuous < 2:
-            if continuous:
-                continuous = False
-            else:
-                continuous = True
-
         return self.send_command(mkcmd(32, 'BHb', number,
-                                       npoints, int(continuous)), 'BHB')
+                                       npoints, int(not continuous)), 'BHB')
 
-    def remove_experiment(self, oldtask):
+    def remove_experiment(self, experiment):
         """
         Delete a single experiment
 
         Args:
-            oldtask: reference of the experiment to remove
+            experiment: reference of the experiment to remove
         Raises:
             ValueError: Invalid reference
         """
-        nb = oldtask.get_parameters()[3]
+        nb = experiment.get_parameters()[3]
         if not 1 <= nb <= 4:
             raise ValueError('Invalid reference')
         self.__destroy_channel(nb)
@@ -803,14 +896,8 @@ class DAQ(threading.Thread):
             available: list of free DataChannels
             used: list of asigned DataChannels
         """
-        used = []
-        available = []
-        for i in range(len(self.experiments)):
-            if self.experiments[i] is not None:
-                used.append(self.experiments[i].number)
-        for i in range(1,5):
-            if i not in used:    
-                available.append(i)
+        used = [e.number for e in self.experiments]
+        available = [i for i in range(1, 5) if i not in used]
         return available, used
             
     def __destroy_channel(self, number):
@@ -828,30 +915,10 @@ class DAQ(threading.Thread):
 
         return self.send_command(mkcmd(57, 'B', number), 'B')[0]
 
-    def create_stream(
-            self, mode, period, npoints=10, continuous=False, buffersize=1000):
+    def create_stream(self, mode, *args, **kwargs):
         """
         Create Stream experiment
-
-        Args:
-            mode: Define data source or destination [0:5]:
-                0) ANALOG_INPUT
-                1) ANALOG_OUTPUT
-                2) DIGITAL_INPUT
-                3) DIGITAL_OUTPUT
-                4) COUNTER_INPUT
-                5) CAPTURE_INPUT
-            period: Period of the stream experiment
-            (milliseconds) [1:65536]
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False run once
-                True continuous
-            buffersize: Buffer size
-        Raises:
-            LengthError: Too many experiments at the same time
-            ValueError: Values out of range
+        See class constructor for more info
         """
 
         available, used = self.dchanindex()
@@ -864,12 +931,19 @@ class DAQ(threading.Thread):
         if len(available) == 0:
             raise LengthError('Only 4 experiments available at a time')
 
-        chan = available[0]
+        if mode == ANALOG_OUTPUT:
+            chan = 4 # DAC_OUTPUT is fixed at DataChannel 4
+            for i in range(index):
+                if self.experiments[i].number == chan: 
+                    if type(self.experiments[i]) is DAQStream:
+                        self.experiments[i].number=available[0]
+                    else:
+                        raise ValueError(
+                            'DataChannel 4 is being used by another experiment')
+        else:
+            chan = available[0]
 
-        s = DAQStream(mode, chan, period,
-                      npoints, continuous, buffersize)
-        self.experiments.append(s)
-        
+        self.experiments.append(DAQStream(mode, chan, *args, **kwargs))
         return self.experiments[index]
 
     def __create_stream(self, number, period):
@@ -890,32 +964,10 @@ class DAQ(threading.Thread):
 
         return self.send_command(mkcmd(19, 'BH', number, period), 'BH')
 
-    def create_external(self, mode, clock_input, edge=1, npoints=10,
-                        continuous=False, buffersize=1000):
+    def create_external(self, mode, clock_input, *args, **kwargs):
         """
         Create External experiment
-
-        Args:
-            clock_input: Assign a DataChannel number and a digital input for
-                this experiment [1:4]
-            mode: Define data source or destination [0:5]:
-                0) ANALOG_INPUT
-                1) ANALOG_OUTPUT
-                2) DIGITAL_INPUT
-                3) DIGITAL_OUTPUT
-                4) COUNTER_INPUT
-                5) CAPTURE_INPUT
-            edge: New data on rising (1) or falling (0) edges [0:1]
-            (milliseconds) [1:65536]
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False run once
-                True continuous
-            buffersize: Buffer size
-        Raises:
-            LengthError: Too much experiments at a time
-            ValueError: Values out of range
+        See class constructor for more info
         """
         available, used = self.dchanindex()
 
@@ -935,10 +987,7 @@ class DAQ(threading.Thread):
                     raise ValueError(
                         'Clock_input is being used by another experiment')
 
-        s = DAQStream(mode, clock_input, edge,
-                      npoints, continuous, buffersize)
-        self.experiments.append(s)
-        
+        self.experiments.append(DAQExternal(mode, clock_input, *args, **kwargs))      
         return self.experiments[index]
 
     def __create_external(self, number, edge):
@@ -959,39 +1008,17 @@ class DAQ(threading.Thread):
 
         return self.send_command(mkcmd(20, 'BB', number, edge), 'BB')
 
-    def create_burst(self, mode, period,
-                     npoints=10, continuous=False, buffersize=4000):
+    def create_burst(self, *args, **kwargs):
         """
         Create Burst experiment
 
-        Args:
-            mode: Define data source or destination [0:5]:
-                0) ANALOG_INPUT
-                1) ANALOG_OUTPUT
-                2) DIGITAL_INPUT
-                3) DIGITAL_OUTPUT
-                4) COUNTER_INPUT
-                5) CAPTURE_INPUT
-            period: Period of the stream experiment
-            (milliseconds) [1:65536]
-            npoints: Total number of points for the experiment
-            [0:65536] (0 indicates continuous acquisition)
-            continuous: Indicates if experiment is continuous
-                False run once
-                True continuous
-        Raises:
-            LengthError: Only 1 burst experiment available at a time
-            ValueError: Values out of range
         """
 
         if len(self.experiments) > 0:
                 raise ValueError(
                     'Only 1 experiment available at a time if using burst')
 
-        s =DAQBurst(mode, period, npoints,
-                    continuous, buffersize)
-        self.experiments.append(s) 
-
+        self.experiments.append(DAQBurst(*args, **kwargs))
         return self.experiments[0]
 
     def __create_burst(self, period):
@@ -1094,118 +1121,19 @@ class DAQ(threading.Thread):
         channel.append(self.header[4]-1)
         return 1
 
-    def set_id(self, id):
-        """
-        Identify openDAQ device
-
-        Args:
-            id: id number of the device [000:999]
-        Raises:
-            ValueError: id out of range
-        """
-        if not 0 <= id < 1000:
-            raise ValueError('id out of range')
-
-        return self.send_command(mkcmd(39, 'I', id), 'bbI')
-
-    def spi_config(self, cpol, cpha):
-        """Bit-Bang SPI configure (clock properties)
-
-        Args:
-            cpol: Clock polarity (clock pin state when inactive)
-            cpha: Clock phase (leading 0, or trailing 1 edges read)
-        Raises:
-            ValueError: Invalid spisw_config values
-        """
-        if not 0 <= cpol <= 1 or not 0 <= cpha <= 1:
-            raise ValueError('Invalid spisw_config values')
-
-        return self.send_command(mkcmd(26, 'BB', cpol, cpha), 'BB')
-
-    def spi_setup(self, nbytes, sck=1, mosi=2, miso=3):
-        """Bit-Bang SPI setup (PIO numbers to use)
-
-        Args:
-            nbytes: Number of bytes
-            sck: Clock pin
-            mosi: MOSI pin (master out / slave in)
-            miso: MISO pin (master in / slave out)
-        Raises:
-            ValueError: Invalid values
-        """
-        if not 0 <= nbytes <= 3:
-            raise ValueError('Invalid number of bytes')
-        if not 1 <= sck <= 6 or not 1 <= mosi <= 6 or not 1 <= miso <= 6:
-            raise ValueError('Invalid spisw_setup values')
-
-        return self.send_command(mkcmd(28, 'BBB', sck, mosi, miso), 'BBB')
-
-    def spi_write(self, value, word=False):
-        """Bit-bang SPI transfer (send+receive) a byte or a word
-
-        Args:
-            value: Data to send (byte/word to transmit)
-            word: send a 2-byte word, instead of a byte
-        Raises:
-            ValueError: Value out of range
-        """
-        if not 0 <= value <= 65535:
-            raise ValueError("value out of range")
-
-        if word:
-            ret = self.send_command(mkcmd(29, 'H', value), 'H')[0]
-        else:
-            ret = self.send_command(mkcmd(29, 'B', value), 'B')[0]
-        return ret
-
     def is_measuring(self):
         """Return True if system is measuring
         """
         return self.measuring
-
-    def __raw_to_volts(self, raw, experiment):
-        """Convert a raw value to a value in volts.
-
-        Args:
-            raw: Value to convert to volts
-            experiment: DataChannel number of this experiment
-        """
-        if not 0 <= experiment <= 3:
-            raise ValueError('Invalid experiment number')
-
-        gain_id, pinput, ninput, number = (
-            self.experiments[experiment].get_parameters())
-
-        if self.__hw_ver == 'm':
-            gain = self.gains[gain_id + 1]
-            offset = self.offsets[gain_id + 1]
-
-            volts = float(raw)
-            volts *= gain
-            volts = -volts/1e5
-            volts = (volts + offset)/1e3
-
-        if self.__hw_ver == 's':
-            n = pinput
-            if ninput != 0:
-                n += 8
-
-            gain = self.gains[n]
-            offset = self.offsets[n]
-            volts = ((float(raw * gain))/1e4 + offset)
-            volts /= MULTIPLIER_LIST[gain_id]
-            volts /= 1000.0
-
-        return volts
 
     def start(self):
         """
         Start all available experiments
         """
         for s in self.experiments:
-            if type(s) is DAQBurst:
+            if s.__class__ is DAQBurst:
                 self.__create_burst(s.period)
-            elif type(s) is DAQStream:
+            elif s.__class__ is DAQStream:
                 self.__create_stream(s.number, s.period)
             else:  # External
                 self.__create_external(s.number, s.edge)
@@ -1266,14 +1194,14 @@ class DAQ(threading.Thread):
                     result = self.get_stream(data, channel)
                     if result == 1:
                         # data available
+                        available, used = self.dchanindex()
                         for i in range(len(data)):
-                            try:
-                                #TODO! : ADJUST DATACHANNEL<->EXPERIMENT INDEX DATA TRANSFER
-                                self.experiments[channel[i]].add_point(
-                                    self.__raw_to_volts(data[i], channel[i]))
-                            except:
-                                pass
+                            whichexp = used.index(channel[i]+1)
+                            self.experiments[whichexp].add_point(
+                                self.__raw_to_volts(data[i], whichexp))
+
                     elif result == 3:
+                        # stop received
                         self.halt()
                 else:
                     time.sleep(0.2)

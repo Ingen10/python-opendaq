@@ -20,14 +20,33 @@
 
 from opendaq.experiment import DAQExperiment
 from collections import deque
-
+from threading import Lock
 
 class DAQExternal(DAQExperiment):
-    def __init__(self, mode, number, edge, npoints, continuous, buffersize):
+    def __init__(self, mode, clock_input, edge=1, npoints=10, continuous=False, buffersize=1000):
         """
         Class constructor
+        Args:
+            mode: Define data source or destination [0:5]:
+                0) ANALOG_INPUT
+                1) ANALOG_OUTPUT
+                2) DIGITAL_INPUT
+                3) DIGITAL_OUTPUT
+                4) COUNTER_INPUT
+                5) CAPTURE_INPUT
+            clock_input: Digital input used as external clock
+            edge: New data on rising (1) or falling (0) edges [0:1]
+            npoints: Total number of points for the experiment
+            [0:65536] 
+            continuous: Indicates if experiment is continuous
+                False run once
+                True continuous
+            buffersize: Buffer size
+        Raises:
+            LengthError: Too many experiments at the same time
+            ValueError: Values out of range
         """
-        if not 1 <= number <= 4:
+        if not 1 <= clock_input <= 4:
             raise ValueError('Invalid clock_input')
 
         if edge not in [0, 1]:
@@ -42,73 +61,16 @@ class DAQExternal(DAQExperiment):
         if not 1 <= buffersize <= 20000:
             raise ValueError('Invalid buffer size')
 
-        self.number = number
+        if mode == 1 and clock_input != 4:
+            raise ValueError('Analog output must use DataChannel 4')
+
+        self.number = clock_input
         self.edge = edge
         self.mode = mode
         self.npoints = npoints
         self.continuous = continuous
         
         self.ring_buffer = deque(maxlen=buffersize)
+        self.mutex_ring_buffer = Lock()        
         self.analog_setup()
 
-    def analog_setup(
-            self, pinput=1, ninput=0, gain=1, nsamples=1):
-        """
-        Configure a channel for a generic stream experiment.
-        """
-        if not 0 <= pinput <= 8:
-            raise ValueError('pinput out of range')
-
-        if not 0 <= nsamples < 255:
-            raise ValueError("samples number out of range")
-
-        self.pinput = pinput
-        self.ninput = ninput
-        self.gain = gain
-        self.nsamples = nsamples
-
-    def get_parameters(self):
-        """
-        Return gain, pintput and ninput
-        """
-        return self.gain, self.pinput, self.ninput, self.number
-
-    def get_mode(self):
-        """
-        Return mode
-        """
-        return self.mode
-
-    def get_preload_data(self):
-        """
-        Return preload_data and preload_offset
-        """
-        return self.preload_data, self.preload_offset
-
-    def load_signal(self, data, offset=0, clear=False):
-        """
-        Load an array of values in volts to preload DAC output
-        """
-        if not 1 <= len(data) <= 400:
-            raise ValueError('Invalid data length')
-
-        if clear:
-            self.preload_data = []
-            self.preload_offset = []
-
-        self.preload_data.append(data)
-        self.preload_offset.append(offset)
-
-    def add_point(self, point):
-        """
-        Write a single point into the ring buffer
-        """
-        self.ring_buffer.append(point)
-
-    def read(self):
-        """
-        Return all available points from the ring buffer
-        """
-        ret = list(self.ring_buffer)
-        self.ring_buffer.clear()
-        return ret
