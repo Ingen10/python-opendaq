@@ -19,18 +19,18 @@ stream2.analog_setup(pinput=7, gain=GAIN_S_X1)
 
 dq.start()
 
-while dq.measuring:
+while dq.is_measuring():
     time.sleep(1)
     print "data1", stream1.read()
-    #print "data2", stream2.read()
+    print "data2", stream2.read()
 
 print "start Again!"
 
 dq.start()
 
-while dq.measuring:
+while dq.is_measuring():
     time.sleep(1)
     print "data1", stream1.read()
-    #print "data2", stream2.read()
+    print "data2", stream2.read()
 	
 dq.stop()

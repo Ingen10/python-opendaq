@@ -71,18 +71,19 @@ class DAQ(threading.Thread):
         self.simulate = (port == 'sim')
 
         self.__running = False
-        self.measuring = False
+        self.__measuring = False
         self.__stopping = False
         self.gain = 0
         self.pinput = 1
         self.open()
 
         info = self.get_info()
+        self.__fw_ver = info[1]
         self.__hw_ver = 'm' if info[0] == 1 else 's'
         self.gains, self.offsets = self.get_cal()
         self.dac_gain, self.dac_offset = self.get_dac_cal()
 
-        self.experiments = [] 
+        self.experiments = []
         self.preload_data = None
 
     def open(self):
@@ -163,6 +164,9 @@ class DAQ(threading.Thread):
     def hw_ver(self):
         return self.__hw_ver
 
+    def fw_ver(self):
+        return self.__fw_ver
+
     def read_adc(self):
         """Read data from ADC and return the raw value
 
@@ -197,7 +201,8 @@ class DAQ(threading.Thread):
         Returns:
             Values[0:7]: List of the analog reading on each input
         """
-
+        if self.fw_ver() < 120:
+            raise Warning("Function not implemented in this FW. Try updating")
         self.gain = gain
         values = self.send_command(mkcmd(4, 'BB', nsamples, gain), '8h')
         if self.__hw_ver == 'm':
@@ -874,7 +879,7 @@ class DAQ(threading.Thread):
         for i in range(len(self.experiments))[::-1]:
             if self.experiments[i].number == nb:
                 del(self.experiments[i])
-        
+
     def clear_experiments(self):
         """
         Delete the whole experiment list
@@ -899,7 +904,7 @@ class DAQ(threading.Thread):
         used = [e.number for e in self.experiments]
         available = [i for i in range(1, 5) if i not in used]
         return available, used
-            
+
     def __destroy_channel(self, number):
         """
         Command firmware to clear a Datachannel structure
@@ -924,22 +929,21 @@ class DAQ(threading.Thread):
         available, used = self.dchanindex()
 
         index = len(self.experiments)
-        
-        if index>0 and type(self.experiments[0]) is DAQBurst:
+
+        if index > 0 and self.experiments[0].__class__ is DAQBurst:
             raise LengthError('Device is configured for a Burst experiment')
 
         if len(available) == 0:
             raise LengthError('Only 4 experiments available at a time')
 
         if mode == ANALOG_OUTPUT:
-            chan = 4 # DAC_OUTPUT is fixed at DataChannel 4
+            chan = 4  # DAC_OUTPUT is fixed at DataChannel 4
             for i in range(index):
-                if self.experiments[i].number == chan: 
+                if self.experiments[i].number == chan:
                     if type(self.experiments[i]) is DAQStream:
-                        self.experiments[i].number=available[0]
+                        self.experiments[i].number = available[0]
                     else:
-                        raise ValueError(
-                            'DataChannel 4 is being used by another experiment')
+                        raise ValueError('DataChannel 4 is being used')
         else:
             chan = available[0]
 
@@ -972,8 +976,8 @@ class DAQ(threading.Thread):
         available, used = self.dchanindex()
 
         index = len(self.experiments)
-        
-        if index>0 and type(self.experiments[0]) is DAQBurst:
+
+        if index > 0 and self.experiments[0].__class__ is DAQBurst:
             raise LengthError('Device is configured for a Burst experiment')
 
         if len(available) == 0:
@@ -982,12 +986,13 @@ class DAQ(threading.Thread):
         for i in range(index):
             if self.experiments[i].number == clock_input:
                 if type(self.experiments[i]) is DAQStream:
-                    self.experiments[i].number=available[0]
+                    self.experiments[i].number = available[0]
                 else:
                     raise ValueError(
                         'Clock_input is being used by another experiment')
 
-        self.experiments.append(DAQExternal(mode, clock_input, *args, **kwargs))      
+        self.experiments.append(DAQExternal(mode, clock_input,
+                                            *args, **kwargs))
         return self.experiments[index]
 
     def __create_external(self, number, edge):
@@ -1036,26 +1041,25 @@ class DAQ(threading.Thread):
 
         return self.send_command(mkcmd(21, 'H', period), 'H')
 
-    def __load_signal(self):
+    def __load_signal(self, pr_of, pr_data):
         """
         Load an array of values in volts to preload DAC output
 
         Raises:
             LengthError: Invalid dada length
         """
-        if not 1 <= len(self.preload_data) <= 400:
+        if not 1 <= len(pr_data) <= 400:
             raise LengthError('Invalid data length')
-
         values = []
-        for volts in self.preload_data:
+        for volts in pr_data:
             raw = self.__volts_to_raw(volts)
             '''
             if self.__hw_ver == "s":
-                raw *= 2'''
-
+                raw *= 2
+            '''
             values.append(raw)
         return self.send_command(mkcmd(23, 'h%dH' % len(values),
-                                       self.preload_offset, *values), 'Bh')
+                                       pr_of, *values), 'Bh')
 
     def flush(self):
         """
@@ -1117,14 +1121,14 @@ class DAQ(threading.Thread):
             if value >= 32768:
                 value -= 65536
             data.append(int(value))
+            channel.append(self.header[4]-1)
         check_stream_crc(self.header, self.data)
-        channel.append(self.header[4]-1)
         return 1
 
     def is_measuring(self):
         """Return True if system is measuring
         """
-        return self.measuring
+        return self.__measuring
 
     def start(self):
         """
@@ -1143,28 +1147,23 @@ class DAQ(threading.Thread):
 
             if (s.get_mode() == ANALOG_OUTPUT):
                 pr_data, pr_offset = s.get_preload_data()
-                for i in range(len(pr_data)):
-                    self.preload_data = pr_data[i]
-                    self.preload_offset = pr_offset[i]
-                    self.__load_signal()
+                for i in range(len(pr_offset)):
+                    self.__load_signal(pr_offset[i], pr_data[i])
                 break
 
         self.send_command(mkcmd(64, ''), '')
 
         if not self.__running:
-            try:
-                threading.Thread.start(self)
-            except:
-                pass
-        self.__running = True
-        self.measuring = True
+            threading.Thread.start(self)
 
+        self.__running = True
+        self.__measuring = True
 
     def stop(self):
         """
         Stop all __running experiments and exit threads
         """
-        self.measuring = False
+        self.__measuring = False
         self.__running = False
         self.__stopping = True
         while True:
@@ -1175,8 +1174,8 @@ class DAQ(threading.Thread):
                 time.sleep(0.2)
                 self.flush()
 
-    def halt(self):
-        self.measuring = False
+    def halt(self, clear=False):
+        self.__measuring = False
         while True:
             try:
                 self.send_command(mkcmd(80, ''), '')
@@ -1184,18 +1183,20 @@ class DAQ(threading.Thread):
             except:
                 time.sleep(0.2)
                 self.flush()
+        if clear:
+            self.clear_experiments()
 
     def run(self):
         while True:
             while self.__running:
-                if self.measuring:
+                if self.__measuring:
                     data = []
                     channel = []
                     result = self.get_stream(data, channel)
                     if result == 1:
                         # data available
                         available, used = self.dchanindex()
-                        for i in range(len(data)):
+                        for i in range(len(channel)):
                             whichexp = used.index(channel[i]+1)
                             self.experiments[whichexp].add_point(
                                 self.__raw_to_volts(data[i], whichexp))

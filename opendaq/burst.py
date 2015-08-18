@@ -22,26 +22,28 @@ from opendaq.experiment import DAQExperiment
 from collections import deque
 from threading import Lock
 
+
 class DAQBurst(DAQExperiment):
-    def __init__(self, mode, period, npoints=10, continuous=False, buffersize=4000):
+    def __init__(self, mode, period, npoints=10,
+                 continuous=False, buffersize=4000):
         """
         Class constructor
         Args:
             mode: Define data source or destination [0:5]:
                 0) ANALOG_INPUT
                 1) ANALOG_OUTPUT
- 
+
             period: Period of the stream experiment
             (microseconds) [1:65536]
             npoints: Total number of points for the experiment
             [0:65536]
             continuous: Indicates if experiment is continuous
                 False - run once
-                True - Continuous execution 
+                True - Continuous execution
             buffersize: Buffer size
         Raises:
             LengthError: Too many experiments at the same time
-            ValueError: Values out of range        
+            ValueError: Values out of range
         """
         if not 100 <= period <= 65535:
             raise ValueError('Invalid period')
@@ -52,12 +54,12 @@ class DAQBurst(DAQExperiment):
         if type(mode) == int and not 0 <= mode <= 1:
             raise ValueError('Invalid mode')
 
-        self.number = 4
+        self.number = 1
         self.period = period
         self.npoints = npoints
         self.continuous = continuous
         self.mode = mode
 
         self.ring_buffer = deque(maxlen=buffersize)
-        self.mutex_ring_buffer = Lock()        
+        self.mutex_ring_buffer = Lock()
         self.analog_setup()

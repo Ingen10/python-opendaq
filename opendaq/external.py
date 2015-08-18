@@ -22,8 +22,10 @@ from opendaq.experiment import DAQExperiment
 from collections import deque
 from threading import Lock
 
+
 class DAQExternal(DAQExperiment):
-    def __init__(self, mode, clock_input, edge=1, npoints=10, continuous=False, buffersize=1000):
+    def __init__(self, mode, clock_input, edge=1,
+                 npoints=10, continuous=False, buffersize=1000):
         """
         Class constructor
         Args:
@@ -37,7 +39,7 @@ class DAQExternal(DAQExperiment):
             clock_input: Digital input used as external clock
             edge: New data on rising (1) or falling (0) edges [0:1]
             npoints: Total number of points for the experiment
-            [0:65536] 
+            [0:65536]
             continuous: Indicates if experiment is continuous
                 False run once
                 True continuous
@@ -69,8 +71,7 @@ class DAQExternal(DAQExperiment):
         self.mode = mode
         self.npoints = npoints
         self.continuous = continuous
-        
-        self.ring_buffer = deque(maxlen=buffersize)
-        self.mutex_ring_buffer = Lock()        
-        self.analog_setup()
 
+        self.ring_buffer = deque(maxlen=buffersize)
+        self.mutex_ring_buffer = Lock()
+        self.analog_setup()

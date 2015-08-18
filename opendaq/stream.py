@@ -22,8 +22,10 @@ from opendaq.experiment import DAQExperiment
 from collections import deque
 from threading import Lock
 
+
 class DAQStream(DAQExperiment):
-    def __init__(self, mode, number, period, npoints=10, continuous=False, buffersize=1000):
+    def __init__(self, mode, number, period,
+                 npoints=10, continuous=False, buffersize=1000):
         """
         Class constructor
         Args:
@@ -69,9 +71,7 @@ class DAQStream(DAQExperiment):
         self.mode = mode
         self.npoints = npoints
         self.continuous = continuous
-        
+
         self.ring_buffer = deque(maxlen=buffersize)
-        self.mutex_ring_buffer = Lock()        
+        self.mutex_ring_buffer = Lock()
         self.analog_setup()
-
-

@@ -29,7 +29,7 @@ plt.show()
 #start the experiment
 dq.start()
 
-while dq.measuring:
+while dq.is_measuring():
     try:
         time.sleep(1)
         a = stream.read()

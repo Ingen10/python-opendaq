@@ -18,11 +18,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
-from threading import Lock
-from collections import deque
 
 class DAQExperiment:
- 
+
     def analog_setup(
             self, pinput=1, ninput=0, gain=1, nsamples=20):
         """
@@ -76,7 +74,7 @@ class DAQExperiment:
         self.mutex_ring_buffer.acquire()
         self.ring_buffer.append(point)
         self.mutex_ring_buffer.release()
-        
+
     def read(self):
         """
         Return all available points from the ring buffer
@@ -86,4 +84,3 @@ class DAQExperiment:
         self.ring_buffer.clear()
         self.mutex_ring_buffer.release()
         return ret
-

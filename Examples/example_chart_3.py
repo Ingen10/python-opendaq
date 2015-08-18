@@ -32,7 +32,7 @@ plt.show()
 #start the experiment
 dq.start()
 
-while dq.measuring:
+while dq.is_measuring():
     try:
         time.sleep(1)
         a = stream1.read()
@@ -40,7 +40,7 @@ while dq.measuring:
         data.extend(a) #append values list with new points from the stream
         t.extend([t0+(data_rate*x)/1000.0 for x in range (l)])  #append time list with the same number of elements
         t0 += (l*data_rate)/1000.0  #increase the time reference
-        plt.plot(t, data,color="blue",linewidth=1.5, linestyle="-")
+        plt.plot(t, data,color="blue",linewidth=1.0, linestyle="-")
         plt.draw()
     except KeyboardInterrupt:
         break
