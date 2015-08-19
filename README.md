@@ -1,8 +1,9 @@
-opendaq
-=======
+opendaq-python
+==============
 Python binding for openDAQ hardware.
 
 openDAQ libraries and examples are compatible with Python 2.7.
+
 Python 3.X is not yet supported.
 
 See usage.rst for additional support.

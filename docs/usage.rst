@@ -1,6 +1,7 @@
-*************
-Device usage
-*************
+***********************
+openDAQ usage in Python
+***********************
+
 Device connection and port handling
 =============================================
 
@@ -21,7 +22,7 @@ When creating an object of type DAQ, you have to specify the actual port at wich
 
  .. code:: python
 
-  dmesg
+ $ dmesg
 
 You should see something like this:
 
@@ -35,9 +36,9 @@ You should see something like this:
   [17755.536101] usb 1-4.4: reset full-speed USB device number 5 using ehci-pci
   [17755.629330] usb 1-4.4: cp210x converter now attached to ttyUSB0
 
-We observe that the openDAQ is attached to the usb port named ttyUSB0. 
+In this example, openDAQ is attached to the USB port named ttyUSB0. 
 
-If we are working on Windows the name of the port will be like "COMxx" instead of "/dev/ttyUSBxx". You can use a program like Tiny Bootloader to see at which port is attached the openDAQ.
+If you are working in Windows, the name of the port will be like "COMxx" instead of "/dev/ttyUSBxx". You can check the port in Control Panel->System->Device Manager.
 
 Now, with the object a created, we can start working with it. If you want to close the port, simply type the following:
 
@@ -46,10 +47,12 @@ Now, with the object a created, we can start working with it. If you want to clo
   a.close()
 
 
-ADC reading (CR mode)
-==============================
+ADC reading (Command-Response mode)
+===================================
 
-First of all, we must configure the ADC,specifying the positive analog input (and the negative analog input if we want to do differential measures). This can be done using the *conf_adc* function:
+First of all, we must configure the ADC,specifying the positive analog input, and the negative analog input if we want to do differential measures. 
+
+This can be done using the *conf_adc* function:
 
  .. code:: python
 
@@ -81,7 +84,9 @@ nsamples         Number of samples per   [0-254]
 
 
 
-There are three options for reading the ADC. If we want the raw data from the ADC, we can use 
+There are three options to read the ADC. 
+
+If we want the raw data from the ADC, we can use 
 
  .. code:: python
 
@@ -90,10 +95,7 @@ There are three options for reading the ADC. If we want the raw data from the AD
   print data
 
   
-
-
-
-Or, if we want the data in Volts, just use:
+Much better, if we want the data directly in Volts, just use:
 
  .. code:: python
 
@@ -123,16 +125,16 @@ The function *set_dac* set the DAC with the raw binary data value:
 
  .. code:: python
 
-  a.set_dac(1500)
+  a.set_dac(3200)
 
 
 
 ===========     ======================= 
 Model           Output Voltage Range     
 ===========     ======================= 
-openDAQ[M]         [-4,096  4,096]V          
+openDAQ[M]         [-4,096V  4,096V]          
 
-openDAQ[S]        [0 4,096]V          
+openDAQ[S]        [0V 4,096V]          
                                          
 ===========     =======================                                          
                                          
@@ -140,28 +142,36 @@ openDAQ[S]        [0 4,096]V
 Stream Experiments Creation (Stream Mode)
 ==============================================
 
-OpenDAQ has two main modes of operation: Command-Response and Stream or hardware-timed mode. In command-response mode the communication is initiated by a command from the host PC, wich is followed by a response from openDAQ. On the other hand, the Stream mode is a continous hardware-timed input mode where a list of channels is scanned at a specified rate.
+OpenDAQ has two main modes of operation: Command-Response Mode and Stream (hardware-timed) Mode. 
 
-Stream mode can refer to three kind of experiments, wich differ in the maximum scan rate allowed and the source of the timing clock (internal or external). We define an experiment as a certain data source with specific configuration, sampling rate and start and stop conditions:
+In command-response mode all communications are initiated by a command from the host PC, wich is followed by a response from openDAQ. 
+
+On the other hand, the Stream mode is a continous hardware-timed input mode where a list of channels that are scanned at a specified rate.
+
+Stream Mode can be used in three kind of experiment modes, wich differ in the maximum scan rate allowed and the source of the timing clock (internal or external). We define an experiment as a certain data source with specific configuration, sampling rate and start and stop conditions:
 
 - Stream experiments
 - External experiments
 - Burst experiments
 
-In  the Stream and Burst experiments we can load  a generic waveform (of any type) and the device will reproduce it through the DAC. This can be achieved by this way:
- -First create the waveform:
- 
-    .. code:: python
+Once the experiment is configured we can start it:
 
-       preload_buffer = [0.3, 1, 3.3, 2] # The waveform
-   
- -Next, create the experiment (Stream or Burst, see next subsections)
+ .. code:: python
 
- -Finally load the signal to the experiment:
+  a.start()
 
-    .. code:: python
+or stop it:
 
-       exp_name.load_signal(preload_buffer)
+ .. code:: python
+
+  a.stop()
+  
+We can read the data using the method *read*:
+
+ .. code:: python
+
+  stream_exp.read()
+
 
 Stream experiments
 ------------------
@@ -172,7 +182,7 @@ User can configure up to 4 Stream experiments to be running simultaneously. They
 internal buffer of about 400 samples, which will be normally enough not to lose any point in the
 communications.
 
-First of all we have to import a couple of things:
+First of all we have to import the library and the constant definitions:
 
  .. code:: python
 
@@ -254,30 +264,13 @@ For the example above:
 
   stream_exp .analog_setup(pinput=7,gain=GAIN_S_X2)
 
-Once the experiment is configured we can start it:
-
- .. code:: python
-
-  a.start()
-
-or stop it:
-
- .. code:: python
-
-  a.stop()
-  
-We can read the data using the method *read*:
-
- .. code:: python
-
-  stream_exp.read()
 
 External experiments
 ---------------------
 
-External experiments use an external digital trigger source to perform readings. Fastest scan rates,however, are intended to be in similar ranges as for the Stream experiments. The rest of properties and parameters are similar to Stream experiments.
+External experiments use an external digital trigger source to perform readings. Fastest scan rates are in similar ranges as for the Stream experiments. The rest of properties and parameters are similar to Stream experiments.
 
-User can define up to 4 external experiments at the same time, each of one connected to digital inputs D1 to D4 (the number of the experiment is connected to the digital input number) to act as trigger inputs.
+User can define up to 4 external experiments at the same time, each of one connected to digital inputs D1 to D4 (the number of the internal DataChannel is connected to the digital input number) to act as trigger inputs.
 
 Maximum number of experiments will be 4 in total, including all External and Stream experiments.
 
@@ -337,21 +330,21 @@ We can use a while loop in this way:
 Burst experiments
 ---------------------
 
-Burst experiments are also internally timed, like External experiments, but they are intended to use a faster sampling rate, up to 20kSPS. The high acquisition rate limits the amount of things that the processor is capable of doing at the same time. Thus, when a Burst experiment is carried out, no more experiments can run at the same time.
-
+Burst experiments are also internally timed, like Stream experiments, but they are intended to use a faster sampling rate, up to 10kSPS. 
+The high acquisition rate limits the amount of things that the processor is capable of doing at the same time. 
+Thus, when a Burst experiment is carried out, no more experiments can run at the same time.
 
 Burst experiment use a bigger internal buffer of about 1600 points to temporary store results. However, if the experiment goes on for a long time, the buffer will eventually get full and the firmware will enter “Auto-recovery” mode. This means that it will get no more points until buffer gets empty again, having
 an time where no sample will be taken.
 
 To create a burst experiment use the following function:
 
-
  .. code:: python
 
   burst_exp = a.create_burst(mode,period,npoints,continuous)
 
 
-Here is an example of a how a burst experiment is configurated:
+Here is an example of a how a burst experiment is configured to do a analog output streaming:
 
  .. code:: python
 
@@ -361,12 +354,29 @@ Here is an example of a how a burst experiment is configurated:
   burst_source.load_signal(preload_buffer)
 
   a.start()
-  time.sleep(3) # to use this function we have to import time
-  a.stop()
 
 
+Analog output streaming 
+-----------------------
+
+With Stream and Burst experiments we can load  a generic waveform (of any type) and the device will reproduce it through the DAC. This can be achieved by this way:
+ 
+ -First create the waveform:
+ 
+    .. code:: python
+
+       preload_buffer = [0.3, 1, 3.3, 2] # The waveform
+   
+ -Next, create the experiment (Stream or Burst, see next subsections)
+
+ -Finally load the signal to the experiment:
+
+    .. code:: python
+
+       exp_name.load_signal(preload_buffer)
 
 
+IMPORTANT NOTE: Analog output streams always use internal DataChannel #4, thus digital input D4 will not be available for an External experiment.
 
 
 Capture Input
