@@ -4,9 +4,12 @@ Tests usage
 Each of these tests evaluate different aspects of the code. 
 In order to execute this tests, go to the parent directory, and run the following:
 
-'''
-  make test
-'''
+
+```sh
+
+$ make test
+
+```
 
 Note:  Some of the hardware tests (test_daq_hw.py file) require connections to be made in the device. 
 
