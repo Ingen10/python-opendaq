@@ -2,8 +2,9 @@
 openDAQ usage in Python
 ***********************
 
+
 Device connection and port handling
-=============================================
+===================================
 
 
 To establish a connection with the openDAQ through the command line type the following:
