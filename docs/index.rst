@@ -12,10 +12,8 @@ Contents:
    :maxdepth: 2
 
    usage
-   quickstart
    opendaq
    installation
-   installation_gui
 
 
 Indices and tables
