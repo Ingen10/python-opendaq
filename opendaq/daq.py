@@ -23,7 +23,7 @@ import struct
 import time
 import serial
 import threading
-from opendaq.common import check_crc, mkcmd, check_stream_crc, LengthError
+from opendaq.common import check_crc, mkcmd, check_stream_crc, LengthError, CRCError
 from opendaq.simulator import DAQSimulator
 from opendaq.stream import DAQStream
 from opendaq.burst import DAQBurst
@@ -1051,6 +1051,7 @@ class DAQ(threading.Thread):
         if not 1 <= len(pr_data) <= 400:
             raise LengthError('Invalid data length')
         values = []
+        self.set_analog(pr_data[0])
         for volts in pr_data:
             raw = self.__volts_to_raw(volts)
             '''
@@ -1068,11 +1069,12 @@ class DAQ(threading.Thread):
         self.ser.flushInput()
 
     def get_stream(self, data, channel):
-        """Get stream from serial connection
-
+        """
+        Serial parser.
+        Low-level function for stream data collecting. 
         Args:
-            data: Data buffer
-            channel: Experiment number
+            data: Buffer for data points
+            channel: Buffer for assigned experiment number
 
         Returns:
             0 if there is not any incoming data.
@@ -1126,7 +1128,8 @@ class DAQ(threading.Thread):
         return 1
 
     def is_measuring(self):
-        """Return True if system is measuring
+        """
+        Returns True if any experiment is going on
         """
         return self.__measuring
 
@@ -1161,7 +1164,10 @@ class DAQ(threading.Thread):
 
     def stop(self):
         """
-        Stop all __running experiments and exit threads
+        Stop all running experiments and exit threads.
+        Experiments will no longer be available.
+        Call just before quitting program!
+        Clears experiment list
         """
         self.__measuring = False
         self.__running = False
@@ -1169,24 +1175,37 @@ class DAQ(threading.Thread):
         while True:
             try:
                 self.send_command(mkcmd(80, ''), '')
+                self.clear_experiments()
                 break
-            except:
+            except CRCError:
                 time.sleep(0.2)
                 self.flush()
 
     def halt(self, clear=False):
+        """
+        Stop running experiments but keep threads active 
+        to start new experiments
+        Args:
+            clear - Clear experiment list
+        """
         self.__measuring = False
         while True:
             try:
                 self.send_command(mkcmd(80, ''), '')
+                time.sleep(1)
                 break
-            except:
+            except CRCError:
                 time.sleep(0.2)
                 self.flush()
         if clear:
             self.clear_experiments()
 
     def run(self):
+        """
+        Thread code. 
+        The procedure stores the experiment data automatically sent 
+        from the device after start()
+        """
         while True:
             while self.__running:
                 if self.__measuring:
@@ -1202,7 +1221,6 @@ class DAQ(threading.Thread):
                                 self.__raw_to_volts(data[i], whichexp))
 
                     elif result == 3:
-                        # stop received
                         self.halt()
                 else:
                     time.sleep(0.2)
