@@ -50,6 +50,16 @@ GAIN_M_X2 = 2
 GAIN_M_X10 = 3
 GAIN_M_X100 = 4
 
+Sw_TRG   = 0          
+DIN1_TRG = 1           
+DIN2_TRG = 2
+DIN3_TRG = 3
+DIN4_TRG = 4
+DIN5_TRG = 5
+DIN6_TRG = 6
+ABIG_TRG = 10      
+ASML_TRG = 20
+
 GAIN_S_X1 = 0
 GAIN_S_X2 = 1
 GAIN_S_X4 = 2
@@ -761,6 +771,60 @@ class DAQ(threading.Thread):
             ret = self.send_command(mkcmd(29, 'B', value), 'B')[0]
         return ret
 
+
+
+    def __trigger_setup(self, number, trg_mode, trg_value):
+	"""Channge the trigger mode of the datachannel
+
+        Args:
+            number: Number of the datachannel
+            trg_mode: Trigger mode of the datachannel
+	    trg_value: Value of the trigger mode
+        Raises:
+            Invalid number: Value out of range
+	    Invalid trigger mode: Value out of range
+	    Invalid trigger value: Value out of range
+        """
+
+	if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
+
+	if type(trg_mode) == int and not 0 <= trg_mode <= 6 and not trg_mode == 10 and not trg_mode == 20:
+            raise ValueError('Invalid trigger mode')
+
+	if 1 <= trg_mode <= 6 and not 0 <= trg_value <= 1:
+	    raise ValueError('Invalid value of digital trigger(0,1)')
+
+        self.send_command(mkcmd(33, 'BBH', number, trg_mode, trg_value), 'BBH')
+
+    def trigger_mode(self, number):
+	"""Get the trigger mode of the datachannel
+
+        Args:
+            number: Number of the datachannel
+        Raises:
+            Invalid number: Value out of range
+        """
+
+	if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
+
+        return self.send_command(mkcmd(34, 'B', number), 'H')[0]
+
+    def get_state_ch(self, number):
+	"""Get state of the datachannel
+
+        Args:
+            number: Number of the datachannel
+        Raises:
+            Invalid number: Value out of range
+        """
+
+	if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
+
+        return self.send_command(mkcmd(35, 'B', number), 'H')[0]
+
     def __conf_channel(
             self, number, mode, pinput=1, ninput=0, gain=1, nsamples=1):
         """
@@ -904,6 +968,21 @@ class DAQ(threading.Thread):
         used = [e.number for e in self.experiments]
         available = [i for i in range(1, 5) if i not in used]
         return available, used
+
+    def flush_channel(self, number):
+	"""
+        Flush the channel
+
+        Args:
+            number: Number of DataChannel to flush
+        Returns:
+            ValueError: Invalid number
+        """
+	if not 1 <= number <= 4:
+            raise ValueError('Invalid number')
+
+	self.send_command(mkcmd(45, 'B', number), 'B')
+
 
     def __destroy_channel(self, number):
         """
@@ -1147,13 +1226,14 @@ class DAQ(threading.Thread):
             self.__setup_channel(s.number, s.npoints, s.continuous)
             self.__conf_channel(s.number, s.mode, s.pinput,
                                 s.ninput, s.gain, s.nsamples)
+	    self.__trigger_setup(s.number, s.trg_mode, s.trg_value)
 
             if (s.get_mode() == ANALOG_OUTPUT):
                 pr_data, pr_offset = s.get_preload_data()
                 for i in range(len(pr_offset)):
                     self.__load_signal(pr_offset[i], pr_data[i])
                 break
-
+	
         self.send_command(mkcmd(64, ''), '')
 
         if not self.__running:

@@ -63,3 +63,4 @@ class DAQBurst(DAQExperiment):
         self.ring_buffer = deque(maxlen=buffersize)
         self.mutex_ring_buffer = Lock()
         self.analog_setup()
+	self.trigger_setup()
