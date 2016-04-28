@@ -50,7 +50,7 @@ GAIN_M_X2 = 2
 GAIN_M_X10 = 3
 GAIN_M_X100 = 4
 
-Sw_TRG   = 0          
+SW_TRG   = 0          
 DIN1_TRG = 1           
 DIN2_TRG = 2
 DIN3_TRG = 3

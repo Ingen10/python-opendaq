@@ -379,6 +379,32 @@ With Stream and Burst experiments we can load  a generic waveform (of any type) 
 
 IMPORTANT NOTE: Analog output streams always use internal DataChannel #4, thus digital input D4 will not be available for an External experiment.
 
+Triggering experiments   
+-----------------------
+
+From version 0.2.1 of the library, openDAQ allows setting trigger modes to start executing experiments.
+Trigger sources may be software triggered (default), digital input trigger (rising or falling edge) or analog value (input value above or below a specific limit).
+
+    .. code:: python
+
+       stream1.trigger_setup(type,value)  
+       
+where
+
+===========     ==============          ========================
+type            Value                   Notes    
+===========     ==============          ========================
+SW_TRG          -                       software trigger (default)
+DIN1_TRG        0/1                     digital trigger
+DIN2_TRG        0/1                     digital trigger
+DIN3_TRG        0/1                     digital trigger
+DIN4_TRG        0/1                     digital trigger
+DIN5_TRG        0/1                     digital trigger
+DIN6_TRG        0/1                     digital trigger
+ABIG_TRG        any                     analog trigger
+ASML_TRG        any                     analog trigger
+===========     ==============          ======================== 
+
 
 Capture Input
 ==============================================

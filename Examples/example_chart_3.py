@@ -43,8 +43,11 @@ while dq.is_measuring():
         plt.plot(t, data,color="blue",linewidth=1.0, linestyle="-")
         plt.draw()
     except KeyboardInterrupt:
+        plt.close()
+        #stop the experiment
+        dq.stop()
+        dq.close()
         break
-#stop the experiment
-dq.stop()
+
 
 

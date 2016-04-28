@@ -1,7 +1,11 @@
 Installation
-============
+============.
 
-You need to have Python 2.7 installed to run setup installation::
+You will need Administrator rights (superuser) to install opendaq.py.
+
+Run the command line in Administrator mode (Windows) or run sudo before the following commands in Linux.
+
+You also need to have Python 2.7 installed to run setup installation::
 
     $ python setup.py install
 

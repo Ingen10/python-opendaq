@@ -30,4 +30,7 @@ while True:
         t.append(t[i]+ delaytime) #increment time counter
         i = i+1
     except KeyboardInterrupt:
+        plt.close()
+        dq.close()
         break
+

@@ -1,7 +1,12 @@
 # Quick start
 
+First of all, install the software using administrator rights (see installation.rst)::
 
-Import the module and connect to the device:
+```sh
+    $ python setup.py install
+```
+
+To start measuring, just import the module and connect to the device:
 
 ```sh
     $ from opendaq import DAQ 	#import the module    
