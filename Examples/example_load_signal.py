@@ -1,24 +1,28 @@
-""" Basic configuration for loading a signal, generate it through the analog output and print on screen """
+"""Basic configuration for loading a signal,
+generate it through the analog output"""
 
-from opendaq import *
-from opendaq.daq import *
+from __future__ import print_function
 import time
+from opendaq import DAQ, ExpMode, Gains
 
 # Connect to the device
-dq = DAQ("COM3")  # change for the Serial port in which openDAQ is connected
+# Change here the serial port in which the openDAQ is connected
+daq = DAQ('COM3')
 
-stream1 = dq.create_stream(ANALOG_INPUT, 100, npoints=16, continuous=False)
-stream1.analog_setup(pinput=8, gain=GAIN_S_X1)
+# create a ramp signal with 4 samples
+signal = list(range(4))
 
-preload_buffer = [0, 1, 2, 3]
-stream2 = dq.create_stream(ANALOG_OUTPUT, 300, npoints=len(preload_buffer)+1,continuous=False)
-stream2.load_signal(preload_buffer,clear=True)
+stream1 = daq.create_stream(ExpMode.ANALOG_IN, 300, npoints=len(signal))
+stream1.analog_setup(pinput=8, gain=Gains.S.x1)
 
-dq.start()
+stream2 = daq.create_stream(ExpMode.ANALOG_OUT, 300, npoints=len(signal))
+stream2.load_signal(signal)
 
-while dq.is_measuring():
+daq.start()
+
+while daq.is_measuring:
     time.sleep(1)
 
-print "data1", stream1.read()
-	
-dq.stop()
+print("data1", stream1.read())
+
+daq.stop()

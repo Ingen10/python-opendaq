@@ -58,7 +58,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'openDAQ'
-copyright = u'2015, Juan Menendez and Jose Ramón Blanco'
+copyright = u'2016, Ingen10 Ingenieria SL'
 
 
 # The version info for the project you're documenting, acts as replacement for
@@ -121,7 +121,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'alabaster'
+html_theme = 'classic'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -236,7 +236,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
   (master_doc, 'openDAQ.tex', u'openDAQ Documentation',
-   u'Juan Menendez Blanco', 'manual'),
+   u'Ingen10', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -266,7 +266,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     (master_doc, 'opendaq', u'openDAQ Documentation',
-     [u'Juan Menendez'], 1)
+     [u'Ingen10'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -280,7 +280,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   (master_doc, 'openDAQ', u'openDAQ Documentation',
-   u'Juan Menendez', 'openDAQ', 'One line description of project.',
+   u'Ingen10', 'openDAQ', 'One line description of project.',
    'Miscellaneous'),
 ]
 

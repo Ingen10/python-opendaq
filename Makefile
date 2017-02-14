@@ -37,7 +37,7 @@ coverage:
 	coverage run --source opendaq setup.py test
 	coverage report -m
 	coverage html
-	xdg-open htmlcov/index.html
+	#xdg-open htmlcov/index.html
 
 docs:
 	#rm -f docs/opendaq.rst
@@ -45,7 +45,7 @@ docs:
 	sphinx-apidoc -o docs/ opendaq
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
-	xdg-open docs/_build/html/index.html
+	#xdg-open docs/_build/html/index.html
 
 release: clean
 	python setup.py sdist upload

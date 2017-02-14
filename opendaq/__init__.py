@@ -1,6 +1,7 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
 
-# Copyright 2013 Juan Menendez <juanmb@ingen10.com>
+# Copyright 2016
+# Ingen10 Ingenieria SL
 #
 # This file is part of opendaq.
 #
@@ -17,7 +18,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
-from daq import DAQ
+from __future__ import absolute_import
+from .daq import DAQ, LedColor, ExpMode, Trigger
+from .models import Gains
+from .daq_model import CalibReg
 
 __version__ = '0.2.0'
-__all__ = ['DAQ']
+__all__ = ['DAQ', 'LedColor', 'ExpMode', 'Trigger', 'Gains', 'CalibReg']

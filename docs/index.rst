@@ -3,8 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to openDAQ's documentation!
-===================================
+openDAQ
+=======
+
+This is the documentation of the **openDAQ** Python package
 
 Contents:
 
@@ -12,9 +14,9 @@ Contents:
    :maxdepth: 2
 
    usage
-   opendaq
    installation
 
+   opendaq
 
 Indices and tables
 ==================

@@ -1,4 +1,7 @@
-# Copyright 2012 Juan Menendez <juanmb@ingen10.com>
+#!/usr/bin/env python
+
+# Copyright 2016
+# Ingen10 Ingenieria SL
 #
 # This file is part of opendaq.
 #
@@ -15,12 +18,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
-from opendaq.serial_sim import SerialSim
 from random import randint
+from .serial_sim import SerialSim
 
 NPIOS = 7
 NINPUTS = 8
 NGAINS = 4
+NDACS = 4
 
 
 class DAQSimulator(SerialSim):
@@ -29,7 +33,7 @@ class DAQSimulator(SerialSim):
         self.pios = [0]*NPIOS
         self.pios_dir = [0]*NPIOS
         self.led_color = 0
-        self.dac_value = 0
+        self.dac_values = [0]*NDACS
         self.adc_pinput = 5
         self.adc_ninput = 0
         self.adc_gain = 1
@@ -43,26 +47,14 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(18, 'B', 'B')
     def cmd_led_w(self, color):
-        """Set LED color
-
-        Args:
-            color: LED color (0-3)
-
-        """
         if not 0 <= color <= 3:
             raise ValueError("Invalid LED color")
 
-        self.led_color = color
+        self.led_color = int(color)
         return color
 
     @SerialSim.command(3, 'B', 'BB')
-    def cmd_get_pio(self, npio):
-        """Get the value of a PIO
-
-        Args:
-            npio: PIO number (1-6)
-
-        """
+    def cmd_read_pio(self, npio):
         if not 0 < npio <= NPIOS:
             raise ValueError("Invalid PIO number")
 
@@ -70,13 +62,6 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(3, 'BB', 'BB')
     def cmd_set_pio(self, npio, value):
-        """Set the value of a PIO
-
-        Args:
-            npio: PIO number (1-6)
-            value: PIO value (1, 1)
-
-        """
         if not 0 < npio <= NPIOS:
             raise ValueError("Invalid PIO number")
         if value not in (0, 1):
@@ -87,12 +72,6 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(5, 'B', 'BB')
     def cmd_get_pio_dir(self, npio):
-        """Get the value of a PIO
-
-        Args:
-            npio: PIO number (1-6)
-
-        """
         if not 0 < npio <= NPIOS:
             raise ValueError("Invalid PIO number")
 
@@ -100,13 +79,6 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(5, 'BB', 'BB')
     def cmd_set_pio_dir(self, npio, dir):
-        """Set the value of a PIO
-
-        Args:
-            npio: PIO number (1-6)
-            dir: PIO direction (0: input, 1: output)
-
-        """
         if not 0 < npio <= NPIOS:
             raise ValueError("Invalid PIO number")
         if dir not in (0, 1):
@@ -115,22 +87,18 @@ class DAQSimulator(SerialSim):
         self.pios_dir[npio-1] = dir
         return npio, dir
 
-    @SerialSim.command(13, 'h', 'h')
-    def cmd_set_dac(self, value):
-        """Set DAQ output voltage
-
-        Args:
-            value: Output voltage in mV as a signed word (16 bit) value
-
-        """
+    @SerialSim.command(13, 'hB', 'hB')
+    def cmd_set_dac(self, value, n):
+        if not 0 <= n < NDACS:
+            raise ValueError("Invalid DAC number")
         if not -4096 <= value < 4096:
             raise ValueError("Invalid voltage value")
 
-        self.dac_value = value
-        return value
+        self.dac_values[n] = value
+        return value, n
 
     @SerialSim.command(1, '', 'h')
-    def cmd_ain(self):
+    def cmd_read_analog(self):
         return randint(-2**14, 2**14 - 1)
 
     @SerialSim.command(2, 'BBBB', 'hBBBB')

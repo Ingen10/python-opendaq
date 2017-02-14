@@ -1,28 +1,32 @@
-"""example_stream_1a.py: creating two streams and allowing them to end"""
+"""Creat two streams and wait until they finish"""
 
-from opendaq import *
-from opendaq.daq import *
+from __future__ import print_function
 import time
+from opendaq import DAQ, ExpMode, Gains
 
 # Connect to the device
-dq = DAQ("COM3")  # change for the Serial port in which openDAQ is connected
+# Change here the serial port in which the openDAQ is connected
+daq = DAQ("COM3")
 
 # Set Analog voltage
-dq.set_analog(0.9)
+daq.set_analog(0.9)
 
-stream1 = dq.create_stream(ANALOG_INPUT, 200, continuous=False)
-stream1.analog_setup(pinput=8, gain=GAIN_S_X1)
+stream1 = daq.create_stream(ExpMode.ANALOG_IN, 1, 10, continuous=False)
+stream1.analog_setup(pinput=8, gain=Gains.M.x1)
 
-stream2 = dq.create_stream(ANALOG_INPUT, 300, continuous=False)
-stream2.analog_setup(pinput=7, ninput=8, gain=GAIN_S_X1)
+stream2 = daq.create_stream(ExpMode.ANALOG_IN, 1, 20, continuous=False)
+stream2.analog_setup(pinput=7, ninput=8, gain=Gains.M.x1)
 
+daq.start()
 
-dq.start()
+while daq.is_measuring:
+    time.sleep(0.1)
 
-while dq.is_measuring():
-    time.sleep(1)
+data1 = stream1.read()
+data2 = stream2.read()
 
-print "data1", stream1.read()
-print "data2", stream2.read()
-	
-dq.stop()
+daq.stop()
+daq.close()
+
+print("data1:", data1)
+print("data2:", data2)
