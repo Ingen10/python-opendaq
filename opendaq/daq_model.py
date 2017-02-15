@@ -24,6 +24,7 @@ import time
 from collections import namedtuple
 from enum import IntEnum
 
+MIN_FW_VERSION = 131
 
 CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
 DAC = namedtuple('DAC', ['bits', 'vmin', 'vmax'])
@@ -70,7 +71,7 @@ class DAQModel(object):
         self.adc_calib = [CalibReg(1., 0.)]*adc_slots
         self.dac_calib = [CalibReg(1., 0.)]*dac_slots
 
-        if self.fw_ver < 131:
+        if self.fw_ver < MIN_FW_VERSION:
             raise ValueError('Invalid firmware version. Please upgrade it!')
 
     @property

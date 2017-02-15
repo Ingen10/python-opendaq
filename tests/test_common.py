@@ -1,5 +1,5 @@
 import unittest
-from opendaq.common import crc, check_crc, CRCError, str2hex, mkcmd
+from opendaq.common import crc, check_crc, CRCError, str2hex, mkcmd, escape_bytes
 
 
 class TestCommon(unittest.TestCase):
@@ -16,9 +16,14 @@ class TestCommon(unittest.TestCase):
         self.assertRaises(CRCError, check_crc, '\x00a' + 'b')
 
     def test_str2hex(self):
-        assert str2hex('\x12\x34\x56') == '12 34 56'
+        assert str2hex(bytes('\x12\x34\x56') == '12 34 56'
 
     def test_mkcmd(self):
         assert str2hex(mkcmd(160, '')) == '00 a0 a0 00'
         assert str2hex(mkcmd(18, 'b', 1)) == '00 14 12 01 01'
         assert str2hex(mkcmd(100, 'bH', 32, 1000)) == '01 72 64 03 20 03 e8'
+
+    def test_escape_bytes(self):
+        a = bytearray([0xff, 0x00, 0x7e, 0x34, 0x89, 0x7d, 0xaa])
+        b = bytearray([0xff, 0x00, 0x14, 0x89, 0x8a])
+        assert escape_bytes(a, (0x7e, 0x7d)) == b

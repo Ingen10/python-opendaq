@@ -101,16 +101,16 @@ def parse_command(data, fmt, length):
 
 
 def escape_bytes(data, escape_codes):
-    newdata = []
+    newdata = bytearray()
     escape = False
 
     for b in data:
-        if ord(b) in escape_codes:
+        if b in escape_codes:
             escape = True
         elif escape:
-            newdata.append(ord(b) ^ 0x20)
+            newdata.append(b ^ 0x20)
             escape = False
         else:
-            newdata.append(ord(b))
+            newdata.append(b)
 
-    return array.array('B', newdata).tostring()
+    return newdata

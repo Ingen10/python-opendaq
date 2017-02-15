@@ -1,10 +1,14 @@
 from __future__ import print_function
-from opendaq import *
+import os
 import time
+from opendaq import *
+
+# Change here the serial port in which the openDAQ is connected
+port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
 
 # Connect to the device
-# change for the Serial port in which openDAQ is connected
-daq = DAQ('COM3')
+daq = DAQ(port)
+
 
 daq.init_capture(12500)
 

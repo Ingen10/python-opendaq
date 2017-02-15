@@ -2,12 +2,15 @@
 generate it through the analog output"""
 
 from __future__ import print_function
+import os
 import time
 from opendaq import DAQ, ExpMode, Gains
 
-# Connect to the device
 # Change here the serial port in which the openDAQ is connected
-daq = DAQ('COM3')
+port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
+
+# Connect to the device
+daq = DAQ(port)
 
 # create a ramp signal with 4 samples
 signal = list(range(4))

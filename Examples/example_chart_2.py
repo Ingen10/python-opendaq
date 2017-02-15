@@ -1,11 +1,15 @@
 """Drawing a simple chart in stream mode"""
 
+import os
 import time
 import matplotlib.pyplot as plt
 from opendaq import DAQ, ExpMode, Gains
 
-# Change to the serial port in wich openDAQ is actually connected
-daq = DAQ('COM3')
+# Change here the serial port in which the openDAQ is connected
+port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
+
+# Connect to the device
+daq = DAQ(port)
 
 daq.set_analog(1)    # set a fix voltage
 

@@ -847,11 +847,12 @@ class DAQ(object):
         _, cmd, size, ch = struct.unpack('!HBBB', packet)
 
         if cmd == CMD.STREAM_DATA:
-            body = escape_bytes(self.ser.read(size - 1), (0x7d, 0x7e))
+            body = bytearray(size - 1)
+            self.ser.readinto(body)
+            body = escape_bytes(body, (0x7d, 0x7e))
 
             if self.__debug:
                 print("STRM:", str2hex(packet), str2hex(body))
-                print(str2hex(body))
 
             data = struct.unpack('!%dh' % ((size - 4)/2), body[3:])
             return ch, data
@@ -871,8 +872,9 @@ class DAQ(object):
         """
         while True:
             # wait for a start byte
-            while self.ser.read(1) != chr(0x7e):
-                pass
+            b = bytearray(1)
+            while b[0] != 0x7e:
+                self.ser.readinto(b)
             # read a packet
             try:
                 yield self.__read_stream_packet()

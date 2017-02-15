@@ -1,13 +1,18 @@
 """Drawing a real-time chart using command-response mode"""
 
+import os
 from time import sleep
 import matplotlib.pyplot as plt
 from opendaq import DAQ
 
-# Change  to the serial port in which openDAQ is actually connected
-dq = DAQ('COM3')
-dq.conf_adc(8)  # Reading in AN8
-dq.read_adc()
+# Change here the serial port in which the openDAQ is connected
+port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
+
+# Connect to the device
+daq = DAQ(port)
+
+daq.conf_adc(8)  # Reading in AN8
+daq.read_adc()
 
 period = 0.05
 
@@ -22,9 +27,9 @@ data = []
 
 for i in range(50):
     try:
-        dq.set_analog(i/50.0 + .5)  # we will plot a ramp line
+        daq.set_analog(i/50.0 + .5)  # we will plot a ramp line
 
-        data.append(dq.read_analog())   # add a new point to the plot
+        data.append(daq.read_analog())   # add a new point to the plot
         t.append(period*i)     # update time list
 
         print(i, data[i])
@@ -36,4 +41,4 @@ for i in range(50):
         break
 
 plt.close()
-dq.close()
+daq.close()
