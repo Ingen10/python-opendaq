@@ -23,5 +23,5 @@ from .daq import DAQ, LedColor, ExpMode, Trigger
 from .models import Gains
 from .daq_model import CalibReg
 
-__version__ = '0.2.1'
+__version__ = '0.3.1'
 __all__ = ['DAQ', 'LedColor', 'ExpMode', 'Trigger', 'Gains', 'CalibReg']
