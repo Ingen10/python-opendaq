@@ -104,7 +104,7 @@ class SerialSim(object):
                 ret.append(self.__out_buf.pop(0))
             except IndexError:
                 break
-        return str(ret)
+        return bytes(ret)
 
     def flushInput(self):
         self.__out_buf = bytearray()

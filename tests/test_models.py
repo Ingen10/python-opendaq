@@ -49,7 +49,8 @@ class TestModelM(unittest.TestCase):
         m.adc_calib[0] = CalibReg(1.1, 0)
         m.adc_calib[9] = CalibReg(1.1, 0)
         out = 8000*(4.096/32768)/1.1/1.1
-        assert abs(m.raw_to_volts(8000, 1, 1, 0) - out) < 1e-8
+
+        assert abs(m.raw_to_volts(8000, 1, 1, 0) - out) < 1e-4
 
     def test_dac_calib(self):
         m = ModelM(140, 123)

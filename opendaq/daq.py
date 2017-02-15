@@ -26,7 +26,7 @@ import array
 import serial
 from threading import Thread
 from enum import IntEnum
-from .common import check_stream_crc, mkcmd, parse_command, str2hex, escape_bytes
+from .common import check_stream_crc, mkcmd, parse_command, bytes2hex, escape_bytes
 from .common import LengthError, CRCError
 from .experiment import Trigger, ExpMode, DAQStream, DAQBurst, DAQExternal
 from .simulator import DAQSimulator
@@ -150,16 +150,16 @@ class DAQ(object):
         """
         self.ser.write(command)
         if self.__debug:
-            print("SENT:", str2hex(command))
+            print("SENT:", bytes2hex(command))
 
         if ret_fmt is None:
             return
 
         fmt = '!BB' + ret_fmt
         ret_len = 2 + struct.calcsize(fmt)
-        ret = self.ser.read(ret_len)
+        ret = bytearray(self.ser.read(ret_len))
         if self.__debug:
-            print("RECV:", str2hex(ret))
+            print("RECV:", bytes2hex(ret))
 
         return parse_command(ret, fmt, ret_len)
 
@@ -843,22 +843,21 @@ class DAQ(object):
         self.ser.flushInput()
 
     def __read_stream_packet(self):
-        packet = self.ser.read(5)
+        packet = bytearray(self.ser.read(5))
         _, cmd, size, ch = struct.unpack('!HBBB', packet)
 
         if cmd == CMD.STREAM_DATA:
-            body = bytearray(size - 1)
-            self.ser.readinto(body)
+            body = bytearray(self.ser.read(size - 1))
             body = escape_bytes(body, (0x7d, 0x7e))
 
             if self.__debug:
-                print("STRM:", str2hex(packet), str2hex(body))
+                print("STRM:", bytes2hex(packet), bytes2hex(body))
 
             data = struct.unpack('!%dh' % ((size - 4)/2), body[3:])
             return ch, data
         elif cmd == CMD.STREAM_STOP:
             if self.__debug:
-                print("STRM:", str2hex(packet))
+                print("STRM:", bytes2hex(packet))
             return ch, None
         else:
             raise IOError("Invalid stream command: %d", cmd)
@@ -872,9 +871,8 @@ class DAQ(object):
         """
         while True:
             # wait for a start byte
-            b = bytearray(1)
-            while b[0] != 0x7e:
-                self.ser.readinto(b)
+            while bytearray(self.ser.read(1))[0] != 0x7e:
+                pass
             # read a packet
             try:
                 yield self.__read_stream_packet()

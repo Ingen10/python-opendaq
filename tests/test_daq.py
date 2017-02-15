@@ -1,5 +1,5 @@
 import unittest
-from opendaq import DAQ
+from opendaq import DAQ, LedColor
 
 
 class TestDAQ(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestDAQ(unittest.TestCase):
         self.daq.close()
 
     def test_set_led(self):
-        for color in range(4):
+        for color in LedColor:
             self.daq.set_led(color)
             assert self.sim.led_color == color
 

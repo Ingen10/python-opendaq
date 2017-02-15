@@ -22,6 +22,7 @@ from random import randint
 from .serial_sim import SerialSim
 
 NPIOS = 7
+NCALIB = 16
 NINPUTS = 8
 NGAINS = 4
 NDACS = 4
@@ -41,17 +42,14 @@ class DAQSimulator(SerialSim):
         self.calib_gains = [100]*17
         self.calib_offsets = [1]*17
 
-        self.hw_ver = 0
-        self.fw_ver = 56
+        self.hw_ver = 2
+        self.fw_ver = 131
         self.dev_id = 456423
 
-    @SerialSim.command(18, 'B', 'B')
-    def cmd_led_w(self, color):
-        if not 0 <= color <= 3:
-            raise ValueError("Invalid LED color")
-
+    @SerialSim.command(18, 'BB', 'BB')
+    def cmd_led_w(self, color, nled):
         self.led_color = int(color)
-        return color
+        return color, nled
 
     @SerialSim.command(3, 'B', 'BB')
     def cmd_read_pio(self, npio):
@@ -125,6 +123,6 @@ class DAQSimulator(SerialSim):
 
     @SerialSim.command(36, 'B', 'BHh')
     def cmd_getcalib(self, index):
-        if not 0 <= index <= (5 if self.hw_ver else 16):
+        if not 0 <= index <= NCALIB:
             raise ValueError("Invalid calibration index")
         return index, self.calib_gains[index], self.calib_offsets[index]

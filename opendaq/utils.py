@@ -491,7 +491,10 @@ def main():
     sparser.set_defaults(func=serial_cmd)
 
     args = parser.parse_args()
-    args.func(args)
+    if 'func' in args:
+        args.func(args)
+    else:
+        parser.print_usage()
 
 
 if __name__ == '__main__':

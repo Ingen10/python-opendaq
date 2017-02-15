@@ -73,12 +73,12 @@ def mkcmd(ncmd, fmt, *args):
     fmt = '!BB' + fmt
     cmdlen = struct.calcsize(fmt) - 2
     cmd = struct.pack(fmt, ncmd, cmdlen, *args)
-    return crc(cmd) + cmd
+    return bytearray(crc(cmd) + cmd)
 
 
-def str2hex(data):
+def bytes2hex(data):
     """Hexdump binary data."""
-    hexstr = ["%02x" % c for c in bytearray(data)]
+    hexstr = ["%02x" % c for c in data]
     return ' '.join(hexstr)
 
 
