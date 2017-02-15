@@ -4,6 +4,7 @@
 import os
 import sys
 from setuptools import setup
+from opendaq import __version__
 
 DESCRIPTION = 'Python binding for openDAQ hardware'
 LONG_DESCRIPTION = """
@@ -21,7 +22,7 @@ if sys.version_info[0] == 2:
 
 setup(
     name='opendaq',
-    version='0.3.0',
+    version=__version__,
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     author='Ingen10 Ingenieria SL',
