@@ -19,9 +19,13 @@
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import absolute_import
-from .daq import DAQ, LedColor, ExpMode, Trigger
-from .models import Gains
-from .daq_model import CalibReg
 
-__version__ = '0.3.1'
+try:
+    from .daq import DAQ, LedColor, ExpMode, Trigger
+    from .models import Gains
+    from .daq_model import CalibReg
+except ImportError:
+    pass
+
+__version__ = '0.3.2'
 __all__ = ['DAQ', 'LedColor', 'ExpMode', 'Trigger', 'Gains', 'CalibReg']
