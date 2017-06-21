@@ -366,6 +366,8 @@ def set_voltage_cmd(args):
     daq = CalibDAQ(args.port)
 
     daq.set_analog(args.volts)
+    if daq.dac_slots > 1:
+        daq.set_analog(args.volts, 2)
 
     if args.interactive:
         print("Press Ctrl-C to exit")
@@ -374,6 +376,8 @@ def set_voltage_cmd(args):
                 print("Enter new voltage: ", end='')
                 try:
                     daq.set_analog(float(raw_input()))
+                    if daq.dac_slots > 1:
+                        daq.set_analog(float(raw_input()), 2)
                 except ValueError:
                     print("Invalid value!")
         except KeyboardInterrupt:
