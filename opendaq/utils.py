@@ -301,7 +301,7 @@ class CalibDAQ(DAQ):
                     rows.append(['%1.1f V' % volts, '%1.3f V' % val,
                                  '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ["TP08", "TP04AR", "TP04AB"]:
+        elif self.hw_ver in ["TP08ABRR", "TP04AR", "TP04AB"]:
             volts = 0
             for i, gain in enumerate(self.pga_gains):
                 if gain < 5 and volts != 5:

@@ -28,8 +28,7 @@ class Gains:
     M = PGAGains.new([1./3, 1, 2, 10, 100])
     S = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20])
     N = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])
-    TP04 = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])
-    TP08 = PGAGains.new([1, 2, 4, 8, 16, 32, 64, 128])
+    TP0X = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])
 
 
 class ModelM(DAQModel):
@@ -113,11 +112,11 @@ class ModelTP08ABRR(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP08', serial_fmt='TP08x10%04d',
-            adc_slots=8, dac_slots=4, npios=4, nleds=8,
-            dac=DAC(bits=16, vmin=-23.75, vmax=23.75),
-            adc=ADC(bits=16, vmin=-23.75, vmax=23.75,
-                    pga_gains=Gains.TP08.values,
+            model_str='TP08ABRR', serial_fmt='TP08x10%04d',
+            adc_slots=8, dac_slots=2, npios=4, nleds=4,
+            dac=DAC(bits=16, vmin=-24, vmax=24),
+            adc=ADC(bits=16, vmin=-24, vmax=24,
+                    pga_gains=Gains.TP0X.values,
                     pinputs=[1, 2, 3, 4], ninputs=[0])
         )
 
@@ -135,7 +134,7 @@ class ModelTP04AR(DAQModel):
             adc_slots=4, dac_slots=2, npios=2, nleds=2,
             dac=DAC(bits=16, vmin=-24.0, vmax=24.0),
             adc=ADC(bits=16, vmin=-24.0, vmax=24.0,
-                    pga_gains=Gains.TP04.values,
+                    pga_gains=Gains.TP0X.values,
                     pinputs=[1, 2], ninputs=[0])
         )
 
@@ -153,7 +152,7 @@ class ModelTP04AB(DAQModel):
             adc_slots=8, dac_slots=2, npios=0, nleds=4,
             dac=DAC(bits=16, vmin=-24.0, vmax=24.0),
             adc=ADC(bits=16, vmin=-24.0, vmax=24.0,
-                    pga_gains=Gains.TP04.values,
+                    pga_gains=Gains.TP0X.values,
                     pinputs=[1, 2, 3, 4], ninputs=[0])
         )
 
