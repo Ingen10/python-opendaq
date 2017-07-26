@@ -157,6 +157,9 @@ class CalibDAQ(DAQ):
                 idx = len(self.pinputs) + i
                 calib[idx] = CalibReg(calib[idx].gain, off)
 
+        for ch in self.pinputs:
+            self.conf_adc(ch, 0, 0)
+
         self.set_adc_calib(calib)
         logging.info("ADC calibration updated")
 
@@ -173,9 +176,12 @@ class CalibDAQ(DAQ):
             self.set_analog(0, 1)
             self.set_analog(0, 2)
 
-        logging.info("%d Volts -->", volts)
-
         calib = self.get_adc_calib()
+
+        self.conf_adc(1, 0, 0)
+        time.sleep(.5)
+
+        logging.info("%d Volts -->", volts)
 
         for ch in self.pinputs:
             self.conf_adc(ch, 0, 0)
@@ -402,7 +408,7 @@ def calib_cmd(args, test=False):
         if daq.dac_slots < 2:
             daq.test_dac(meter)
         daq.test_adc()
-        if daq.npios > 0:
+        if daq.get_info()[0] < 10:
             daq.test_pio()
     elif args.show:
         logging.info(title("DAC calibration"))
