@@ -6,6 +6,7 @@ import time
 import logging
 import argparse
 import numpy as np
+import json
 from terminaltables import AsciiTable
 from . import usbtmc
 from .daq import DAQ
@@ -46,6 +47,8 @@ class CalibDAQ(DAQ):
     def __init__(self, port):
         DAQ.__init__(self, port)
         model = DAQModel.new(*self.get_info())
+        self.model_str = model.model_str
+        self.serial = model.serial
         self.pinputs = model.adc.pinputs
         self.pga_gains = model.adc.pga_gains
         self.dac_slots = model.dac_slots
@@ -72,7 +75,17 @@ class CalibDAQ(DAQ):
             y.append(meter.measure('volt_dc'))
         return values, y
 
-    def calibrate_dac(self, dac_file=None, meter=None):
+    def calibrate_dac(self, dac_file=None, meter=None, report=False):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            data = {}
+            data['model'] = self.model_str
+            data['serial'] = self.serial
+            data['time'] = time.strftime("%d/%m/%y")
+            data['humidity'] = input('Introduce la humedad(%): ')
+            data['temperature'] = input('Introduce la temperatura: ')
+            outputs = []
+
         if self.dac_slots < 2:
             if meter:
                 volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1)
@@ -91,6 +104,8 @@ class CalibDAQ(DAQ):
 
             logging.info("New DAC calibration:")
             self.print_calib([new_calib])
+            if report:
+                outputs.append({'gain': round(gain, 4), 'offset': round(offset, 4)})
         else:
             x, y, z = np.loadtxt(dac_file, unpack=True)
             logging.info("Values loaded from %s:" % dac_file)
@@ -108,6 +123,14 @@ class CalibDAQ(DAQ):
             logging.info("New DAC calibration:")
             self.print_calib(new_calib)
             self.set_dac_calib(new_calib)
+            if report:
+                outputs.append({'gain': round(gain1, 4), 'offset': round(offset1, 4)})
+                outputs.append({'gain': round(gain2, 4), 'offset': round(offset2, 4)})
+
+        if report:
+            data['outputs'] = outputs
+            json.dump(data, f, indent=2)
+            f.close()
 
     def print_calib(self, calib):
         rows = [['Gain', 'Offset']]
@@ -115,7 +138,12 @@ class CalibDAQ(DAQ):
             rows.append(['%.4f' % c.gain, '%.4f' % c.offset])
         logging.info(AsciiTable(rows).table)
 
-    def calibrate_adc_offset(self):
+    def calibrate_adc_offset(self, report=False):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
+            data = json.load(f)
+            inputs = []
+
         logging.info(title("Calibrating ADC offset"))
 
         if self.dac_slots < 2:
@@ -150,20 +178,32 @@ class CalibDAQ(DAQ):
                 calib[idx] = CalibReg(calib[idx].gain, corr_gain)
 
             offsets_ampli.append(corr_gain)
+            if report:
+                inputs.append({'offset1': round(corr_offset, 4), 'offset2': round(corr_gain, 4)})
 
         if self.hw_ver == "[M]":
             off = np.mean(offsets_ampli)
             for i, _ in enumerate(self.pga_gains):
                 idx = len(self.pinputs) + i
                 calib[idx] = CalibReg(calib[idx].gain, off)
-
-        for ch in self.pinputs:
-            self.conf_adc(ch, 0, 0)
+            if report:
+                inputs.append({'offset': off})
 
         self.set_adc_calib(calib)
         logging.info("ADC calibration updated")
 
-    def calibrate_adc_gain(self):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            data['inputs'] = inputs
+            json.dump(data, f, indent=2)
+            f.close()
+
+    def calibrate_adc_gain(self, report=False):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
+            data = json.load(f)
+            inputs = data['inputs']
+
         logging.info(title("Calibrating ADC gain"))
 
         if self.dac_slots < 2:
@@ -176,20 +216,18 @@ class CalibDAQ(DAQ):
             self.set_analog(0, 1)
             self.set_analog(0, 2)
 
-        calib = self.get_adc_calib()
-
-        self.conf_adc(1, 0, 0)
-        time.sleep(.5)
-
         logging.info("%d Volts -->", volts)
 
-        for ch in self.pinputs:
+        calib = self.get_adc_calib()
+
+        for j, ch in enumerate(self.pinputs):
             self.conf_adc(ch, 0, 0)
             time.sleep(.05)
             value = self.read_analog()/volts
             calib[ch - 1] = CalibReg(value, calib[ch - 1].offset)
             logging.info("%d --> %0.4f (%d)" % (ch, value, self.read_adc()))
-
+            if report:
+                inputs[j]['gain'] = round(value, 4)
         if self.hw_ver == "[M]":
             self.set_adc_calib(calib)
             for i, pga in enumerate(self.pga_gains[1:]):
@@ -209,7 +247,17 @@ class CalibDAQ(DAQ):
         self.print_calib(calib)
         self.set_adc_calib(calib)
 
-    def calibrate_se(self):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            data['inputs'] = inputs
+            json.dump(data, f, indent=2)
+            f.close()
+
+    def calibrate_se(self, report=False):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
+            data = json.load(f)
+            inputs = []
         logging.info("Calibrating ADC (Single-ended mode)")
 
         calib = self.get_adc_calib()
@@ -233,12 +281,22 @@ class CalibDAQ(DAQ):
             _, new_offset = np.polyfit(volts, a, 1)
             calib[ch - 1] = CalibReg(new_corr, new_offset)
             logging.info("m: %f\tb: %f" % (new_corr, new_offset))
+            inputs.append({'gain': round(new_corr, 4), 'offset1': round(new_offset, 4)})
 
         logging.info("ADC calibration (single-ended mode):")
         self.print_calib(calib)
         self.set_adc_calib(calib)
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            data['inputs'] = inputs
+            json.dump(data, f, indent=2)
+            f.close()
 
-    def calibrate_de(self):
+    def calibrate_de(self, report=False):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
+            data = json.load(f)
+            inputs = data['inputs']
         logging.info("Calibrating ADC (Differential-ended mode)")
 
         calib = self.get_adc_calib()
@@ -251,11 +309,22 @@ class CalibDAQ(DAQ):
             raw = self.read_adc()
             idx = len(self.pinputs) + i
             calib[idx] = CalibReg(calib[idx].gain, raw)
+            inputs[ch]['offset2'] = round(raw, 4)
 
         self.print_calib(calib)
         self.set_adc_calib(calib)
 
-    def test_pio(self):
+        if report:
+            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            data['inputs'] = inputs
+            json.dump(data, f, indent=2)
+            f.close()
+
+    def test_pio(self, report=False):
+        if report:
+            f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
+            data = json.load(f)
+            pios = []
         logging.info(title("PIO test"))
 
         self.set_port_dir(0)
@@ -269,45 +338,82 @@ class CalibDAQ(DAQ):
 
             if port_down == 0 and port_up == 0x3f:
                 logging.info("PIO %d OK" % i)
+                if report:
+                    pios.append({'PIO %d' % i: 'OK'})
             else:
                 logging.error("PIO %d ERROR" % i)
+                if report:
+                    pios.append({'PIO %d' % i: 'ERROR'})
+        if report:
+            data['pios'] = pios
+            f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            json.dump(data, f, indent=2)
+            f.close()
 
-    def test_dac(self, meter=None):
+    def test_dac(self, meter=None, report=False):
+        if report:
+            f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            data = {}
+            outputs = []
+
         logging.info(title("DAC calibration test"))
-
         volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1)
-
         if meter:
             x, y = self.measure_dac(volts, meter)
             logging.info("Values measured with the USB multimeter:")
             logging.info(ExpectedValuesTable(zip(x, y)))
+            if report:
+                for i, value in enumerate(x):
+                    outputs.append({'ref': value, 'measure': round(y[i], 4)})
         else:
+            if report:
+                volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1, 2)
             for i in volts:
                 self.set_analog(i)
                 logging.info("Set DAC=%1.1f ->" % i)
                 time.sleep(.5)
-                if yes_no("Is the voltage correct?"):
-                    logging.info("OK")
+                if report:
+                    value = input("Enter the measured value: ")
+                    outputs.append({'ref': i, 'meassure': round(value, 4)})
                 else:
-                    logging.error("ERROR")
+                    if yes_no("Is the voltage correct?"):
+                        logging.info("OK")
+                    else:
+                        logging.error("ERROR")
+        if report:
+            data['outputs'] = outputs
+            json.dump(data, f, indent=2)
+            f.close()
 
-    def test_adc(self):
+    def test_adc(self, report=False):
         logging.info(title("ADC calibration test"))
-
-        if self.hw_ver == "[S]":
+        if report:
+            try:
+                f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
+                data = json.load(f)
+            except:
+                data = {}
+            data['model'] = self.model_str
+            data['serial'] = self.serial
+            data['time'] = time.strftime("%d/%m/%y")
+            inputs = []
             for pinput in self.pinputs:
+                inputs.append([])
+        if self.hw_ver == "[S]":
+            for j, pinput in enumerate(self.pinputs):
                 self.conf_adc(pinput, 0)
                 logging.info("Input: %d:" % pinput)
-
                 rows = [['Target', 'Read', 'Error']]
                 for volts in range(5):
                     self.set_analog(volts)
                     val = self.read_analog()
                     err = abs(100 * (val - volts) / 12.)
+                    if report:
+                        inputs[j].append({'pga_gain': self.pga_gains[0], 'ref': round(volts, 4), 'measure': '%1.3f' % round(val, 4)})
                     rows.append(['%1.1f V' % volts, '%1.3f V' % val,
                                  '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ["TP08ABRR", "TP04AR", "TP04AB"]:
+        elif self.hw_ver in ["TP08", "TP04AR", "TP04AB"]:
             volts = 0
             for i, gain in enumerate(self.pga_gains):
                 if gain < 5 and volts != 5:
@@ -327,10 +433,12 @@ class CalibDAQ(DAQ):
                 logging.info("Gain: x%d Target: %.2f V" % (gain, volts))
 
                 rows = [['Input', 'Read', 'Error']]
-                for pinput in self.pinputs:
+                for j, pinput in enumerate(self.pinputs):
                     self.conf_adc(pinput, 0, i)
                     val = self.read_analog()
                     err = abs(100 * (val - volts) / max_ref)
+                    if report:
+                        inputs[j].append({'pga_gain': gain, 'ref': round(volts, 4), 'measure': round(val, 4)})
                     rows.append([pinput, '%1.3f V' % val, '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
         else:
@@ -345,12 +453,19 @@ class CalibDAQ(DAQ):
                 logging.info("Gain: x%0.2f Target: %.2f V" % (gain, volts))
 
                 rows = [['Input', 'Read', 'Error']]
-                for pinput in self.pinputs:
+                for j, pinput in enumerate(self.pinputs):
                     self.conf_adc(pinput, 0, i)
                     val = self.read_analog()
                     err = abs(100 * (val - volts) / max_ref)
+                    if report:
+                        inputs[j].append({'pga_gain': gain, 'ref': round(volts, 4), 'measure': '%1.3f' % round(val, 4)})
                     rows.append([pinput, '%1.3f V' % val, '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
+        if report:
+            data['inputs'] = inputs
+            f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
+            json.dump(data, f, indent=2)
+            f.close()
 
 
 def info_cmd(args):
@@ -372,8 +487,6 @@ def set_voltage_cmd(args):
     daq = CalibDAQ(args.port)
 
     daq.set_analog(args.volts)
-    if daq.dac_slots > 1:
-        daq.set_analog(args.volts, 2)
 
     if args.interactive:
         print("Press Ctrl-C to exit")
@@ -382,8 +495,6 @@ def set_voltage_cmd(args):
                 print("Enter new voltage: ", end='')
                 try:
                     daq.set_analog(float(raw_input()))
-                    if daq.dac_slots > 1:
-                        daq.set_analog(float(raw_input()), 2)
                 except ValueError:
                     print("Invalid value!")
         except KeyboardInterrupt:
@@ -392,7 +503,6 @@ def set_voltage_cmd(args):
 
 def calib_cmd(args, test=False):
     daq = CalibDAQ(args.port)
-
     if args.log:
         # setup the file logger
         filename = '%s_%s.log' % (daq.serial_str, time.strftime('%y%m%d'))
@@ -406,10 +516,10 @@ def calib_cmd(args, test=False):
     if test:
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
         if daq.dac_slots < 2:
-            daq.test_dac(meter)
-        daq.test_adc()
-        if daq.get_info()[0] < 10:
-            daq.test_pio()
+            daq.test_dac(meter, args.json)
+        daq.test_adc(args.json)
+        if daq.npios > 0:
+            daq.test_pio(args.json)
     elif args.show:
         logging.info(title("DAC calibration"))
         daq.print_calib(daq.get_dac_calib())
@@ -421,7 +531,7 @@ def calib_cmd(args, test=False):
     elif args.dac:
         logging.info(title("Calibrating DAC"))
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
-        daq.calibrate_dac(dac_file=args.file, meter=meter)
+        daq.calibrate_dac(dac_file=args.file, meter=meter, report=args.json)
     else:
         logging.info("Resetting calibration values")
         daq.reset_calib()
@@ -429,15 +539,15 @@ def calib_cmd(args, test=False):
         logging.info(title("Calibrating DAC"))
 
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
-        daq.calibrate_dac(dac_file=args.file, meter=meter)
+        daq.calibrate_dac(dac_file=args.file, meter=meter, report=args.json)
 
         if daq.hw_ver == "[S]":
             pass
-            daq.calibrate_se()
-            daq.calibrate_de()
+            daq.calibrate_se(args.json)
+            daq.calibrate_de(args.json)
         else:
-            daq.calibrate_adc_offset()
-            daq.calibrate_adc_gain()
+            daq.calibrate_adc_offset(args.json)
+            daq.calibrate_adc_gain(args.json)
 
 
 def main():
@@ -466,6 +576,8 @@ def main():
     cparser = subparsers.add_parser('calib', help='Calibrate the devices')
     cparser.add_argument('-l', '--log', action='store_true',
                          help='Generate log file'),
+    cparser.add_argument('-j', '--json', action='store_true',
+                         help='Generate json file'),
     cparser.add_argument('-r', '--reset', action='store_true',
                          help='Reset calibration values')
     cparser.add_argument('-d', '--dac', action='store_true',
@@ -477,12 +589,15 @@ def main():
                          help='Show calibration values')
     cparser.add_argument('-a', '--auto', action='store_true',
                          help='Automated calibration using a USB multimeter')
+
     cparser.set_defaults(func=calib_cmd)
 
     # 'test' command parser
     tparser = subparsers.add_parser('test', help='Test device calibration')
     tparser.add_argument('-l', '--log',
                          help='Generate log file', action='store_true')
+    tparser.add_argument('-j', '--json',
+                         help='Generate json file', action='store_true')
     tparser.add_argument('-a', '--auto', action='store_true',
                          help='Automated testing using a USB multimeter')
     tparser.set_defaults(func=lambda args: calib_cmd(args, True))
