@@ -216,13 +216,19 @@ class CalibDAQ(DAQ):
             self.set_analog(0, 1)
             self.set_analog(0, 2)
 
-        logging.info("%d Volts -->", volts)
-
         calib = self.get_adc_calib()
+
+        self.conf_adc(1, 0, 0)
+        time.sleep(.5)
+
+        self.conf_adc(1, 0, 1)
+        print(self.read_analog())
+
+        logging.info("%d Volts -->", volts)
 
         for j, ch in enumerate(self.pinputs):
             self.conf_adc(ch, 0, 0)
-            time.sleep(.05)
+            time.sleep(.3)
             value = self.read_analog()/volts
             calib[ch - 1] = CalibReg(value, calib[ch - 1].offset)
             logging.info("%d --> %0.4f (%d)" % (ch, value, self.read_adc()))
