@@ -291,7 +291,6 @@ class DAQ(object):
     def set_analog(self, volts, number=1):
         """Set DAC output (volts).
         Set the output voltage of the DAC.
-
         :param volts: DAC output value in volts.
         :raises: ValueError
         """
@@ -904,7 +903,14 @@ class DAQ(object):
             self.__trigger_setup(s.number, s.trg_mode, s.trg_value)
 
             if s.get_mode() == ExpMode.ANALOG_OUT:
-                self.__load_signal(*s.get_preload_data())
+                data, offset = s.get_preload_data()
+                buff_length = 50
+                num_buffers = int(len(data) / buff_length)
+                for i in range(num_buffers):
+                    init = i * buff_length
+                    end = init + buff_length
+                    buff = data[init:end]
+                    self.__load_signal(buff, init)
                 break
 
         self.__measuring = True
