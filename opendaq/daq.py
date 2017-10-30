@@ -34,7 +34,7 @@ from .models import DAQModel
 
 BAUDS = 115200
 MAX_CHANNELS = 4
-
+MAX_BUFFER_LINE = 50
 
 class CMD(IntEnum):
     AIN = 1
@@ -291,7 +291,6 @@ class DAQ(object):
     def set_analog(self, volts, number=1):
         """Set DAC output (volts).
         Set the output voltage of the DAC.
-
         :param volts: DAC output value in volts.
         :raises: ValueError
         """
@@ -871,8 +870,11 @@ class DAQ(object):
         """
         while True:
             # wait for a start byte
-            while bytearray(self.ser.read(1))[0] != 0x7e:
+            r = self.ser.read(1)
+            while len(r) == 0 or bytearray(r)[0] != 0x7e:
+                r = self.ser.read(1)
                 pass
+
             # read a packet
             try:
                 yield self.__read_stream_packet()
@@ -904,7 +906,17 @@ class DAQ(object):
             self.__trigger_setup(s.number, s.trg_mode, s.trg_value)
 
             if s.get_mode() == ExpMode.ANALOG_OUT:
-                self.__load_signal(*s.get_preload_data())
+                data, offset = s.get_preload_data()
+                num_buffers = int(len(data) / MAX_BUFFER_LINE)
+                for i in range(num_buffers):
+                    init = i * MAX_BUFFER_LINE
+                    end = init + MAX_BUFFER_LINE
+                    buff = data[init:end]
+                    self.__load_signal(buff, init)
+                init = num_buffers * MAX_BUFFER_LINE
+                buff = data[init:]
+                if len(buff) > 0:
+                    self.__load_signal(buff, init)
                 break
 
         self.__measuring = True
