@@ -870,8 +870,11 @@ class DAQ(object):
         """
         while True:
             # wait for a start byte
-            while bytearray(self.ser.read(1))[0] != 0x7e:
+            r = self.ser.read(1)
+            while len(r) == 0 or bytearray(r)[0] != 0x7e:
+                r = self.ser.read(1)
                 pass
+
             # read a packet
             try:
                 yield self.__read_stream_packet()
