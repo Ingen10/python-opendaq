@@ -34,7 +34,7 @@ from .models import DAQModel
 
 BAUDS = 115200
 MAX_CHANNELS = 4
-
+MAX_BUFFER_LINE = 50
 
 class CMD(IntEnum):
     AIN = 1
@@ -907,12 +907,15 @@ class DAQ(object):
 
             if s.get_mode() == ExpMode.ANALOG_OUT:
                 data, offset = s.get_preload_data()
-                buff_length = 50
-                num_buffers = int(len(data) / buff_length)
+                num_buffers = int(len(data) / MAX_BUFFER_LINE)
                 for i in range(num_buffers):
-                    init = i * buff_length
-                    end = init + buff_length
+                    init = i * MAX_BUFFER_LINE
+                    end = init + MAX_BUFFER_LINE
                     buff = data[init:end]
+                    self.__load_signal(buff, init)
+                init = num_buffers * MAX_BUFFER_LINE
+                buff = data[init:]
+                if len(buff) > 0:
                     self.__load_signal(buff, init)
                 break
 
