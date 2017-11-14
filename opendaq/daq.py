@@ -286,7 +286,6 @@ class DAQ(object):
         "param raw: Raw ADC value.
         :raises: ValueError
         """
-        print(raw,number)
         self.send_command(mkcmd(CMD.SET_DAC, 'hB', int(round(raw)), number), 'hB')[0]
 
     def set_analog(self, volts, number=1):
