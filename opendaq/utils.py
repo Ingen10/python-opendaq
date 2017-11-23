@@ -81,9 +81,9 @@ class CalibDAQ(DAQ):
             data = {}
             data['model'] = self.model_str
             data['serial'] = self.serial
-            data['time'] = time.strftime("%d/%m/%y")
-            data['humidity'] = input('Introduce la humedad(%): ')
-            data['temperature'] = input('Introduce la temperatura: ')
+            data['time'] = int(time.time())
+            data['humidity'] = input('Enter humidity (%): ')
+            data['temperature'] = input('Enter temperature: ')
             outputs = []
 
         if self.dac_slots < 2:
@@ -107,25 +107,23 @@ class CalibDAQ(DAQ):
             if report:
                 outputs.append({'gain': round(gain, 4), 'offset': round(offset, 4)})
         else:
-            x, y, z = np.loadtxt(dac_file, unpack=True)
-            logging.info("Values loaded from %s:" % dac_file)
-
-            logging.info(ExpectedValuesTable(zip(x, y)))
-            logging.info(ExpectedValuesTable(zip(x, z)))
-
-            gain1, offset1 = np.polyfit(x, y, 1)
-            gain2, offset2 = np.polyfit(x, z, 1)
-
+            voltages = []
             new_calib = []
-            new_calib.append(CalibReg(gain1, offset1))
-            new_calib.append(CalibReg(gain2, offset2))
-
+            for cols in range(self.dac_slots + 1):
+                read_values = []
+                for raw in range(len(np.loadtxt(dac_file))):
+                    if cols == 0:
+                        voltages.append(np.loadtxt(dac_file)[raw][cols])
+                    else:
+                        read_values.append(np.loadtxt(dac_file)[raw][cols])
+                if cols > 0:
+                    gain, offset = np.polyfit(voltages, read_values, 1)
+                    new_calib.append(CalibReg(gain, offset))
+                    if report:
+                        outputs.append({'gain': round(gain, 4), 'offset': round(offset, 4)})
             logging.info("New DAC calibration:")
             self.print_calib(new_calib)
             self.set_dac_calib(new_calib)
-            if report:
-                outputs.append({'gain': round(gain1, 4), 'offset': round(offset1, 4)})
-                outputs.append({'gain': round(gain2, 4), 'offset': round(offset2, 4)})
 
         if report:
             data['outputs'] = outputs
@@ -218,11 +216,9 @@ class CalibDAQ(DAQ):
 
         calib = self.get_adc_calib()
 
-        self.conf_adc(1, 0, 0)
+        for ch in self.pinputs:
+            self.conf_adc(ch, 0, 0)
         time.sleep(.5)
-
-        self.conf_adc(1, 0, 1)
-        print(self.read_analog())
 
         logging.info("%d Volts -->", volts)
 
@@ -233,7 +229,7 @@ class CalibDAQ(DAQ):
             calib[ch - 1] = CalibReg(value, calib[ch - 1].offset)
             logging.info("%d --> %0.4f (%d)" % (ch, value, self.read_adc()))
             if report:
-                inputs[j]['gain'] = round(value, 4)
+                inputs[j]['dc_gain'] = round(value, 4)
         if self.hw_ver == "[M]":
             self.set_adc_calib(calib)
             for i, pga in enumerate(self.pga_gains[1:]):
@@ -360,6 +356,9 @@ class CalibDAQ(DAQ):
         if report:
             f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
             data = {}
+            data['model'] = self.model_str
+            data['serial'] = self.serial
+            data['time'] = int(time.time())
             outputs = []
 
         logging.info(title("DAC calibration test"))
@@ -372,20 +371,39 @@ class CalibDAQ(DAQ):
                 for i, value in enumerate(x):
                     outputs.append({'ref': value, 'measure': round(y[i], 4)})
         else:
-            if report:
-                volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1, 2)
-            for i in volts:
-                self.set_analog(i)
-                logging.info("Set DAC=%1.1f ->" % i)
-                time.sleep(.5)
+            if self.model_str == 'EM08C-RRLL':
+                logging.info("Target: 10.0 mA")
+                rows = [['Input', 'Read (mA)']]
+                ref = 10.0
+                for ch in range (1, self.dac_slots + 1):
+                    print("Connect the analog output %d to the power and press Intro." % ch)
+                    raw_input()
+                    r = self.set_analog(ref, ch)
+                    while not(r):
+                        print("Powering error. Try again and press Intro.")
+                        raw_input()
+                        r = self.set_analog(ref, ch)
+                    read_value = float(raw_input("Enter the measured value (mA): "))
+                    rows.append([ch, read_value])
+                    if report:
+                        outputs.append({'ref': ref, 'meassure': round(read_value, 4)})
+                logging.info(AsciiTable(rows).table)
+
+            else:
                 if report:
-                    value = input("Enter the measured value: ")
-                    outputs.append({'ref': i, 'meassure': round(value, 4)})
-                else:
-                    if yes_no("Is the voltage correct?"):
-                        logging.info("OK")
+                    volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1, 2)
+                for i in volts:
+                    self.set_analog(i)
+                    logging.info("Set DAC=%1.1f ->" % i)
+                    time.sleep(.5)
+                    if report:
+                        value = input("Enter the measured value: ")
+                        outputs.append({'ref': i, 'meassure': round(value, 4)})
                     else:
-                        logging.error("ERROR")
+                        if yes_no("Is the voltage correct?"):
+                            logging.info("OK")
+                        else:
+                            logging.error("ERROR")
         if report:
             data['outputs'] = outputs
             json.dump(data, f, indent=2)
@@ -399,9 +417,6 @@ class CalibDAQ(DAQ):
                 data = json.load(f)
             except:
                 data = {}
-            data['model'] = self.model_str
-            data['serial'] = self.serial
-            data['time'] = time.strftime("%d/%m/%y")
             inputs = []
             for pinput in self.pinputs:
                 inputs.append([])
@@ -419,8 +434,10 @@ class CalibDAQ(DAQ):
                     rows.append(['%1.1f V' % volts, '%1.3f V' % val,
                                  '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ["TP08", "TP04AR", "TP04AB"]:
+        elif self.hw_ver in ["TP08", "TP04AR", "TP04AB", "TP8X_ABRR"]:
             volts = 0
+            if report:
+                max_err = np.zeros(len(self.pinputs))
             for i, gain in enumerate(self.pga_gains):
                 if gain < 5 and volts != 5:
                     while not yes_no("Set 5 V at all inputs.\nPress 'y' when ready."):
@@ -444,9 +461,19 @@ class CalibDAQ(DAQ):
                     val = self.read_analog()
                     err = abs(100 * (val - volts) / max_ref)
                     if report:
-                        inputs[j].append({'pga_gain': gain, 'ref': round(volts, 4), 'measure': round(val, 4)})
+                        if err > max_err[j]:
+                            max_err[j] = err
+                        if gain == 32:
+                            inputs[j]['out_05v_32x_dc'] = round(val, 4)
+                        elif gain == 1:
+                            inputs[j]['out_5v_1x_dc'] = round(val, 4)
+                        elif gain == 8:
+                            inputs[j]['out_5v_8x_dc'] = round(val, 4)
                     rows.append([pinput, '%1.3f V' % val, '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
+            if report:
+                for j in range(self.pinputs):
+                    inputs[j]['dc_error'] = round(max_err[j], 4)
         else:
             for i, gain in enumerate(self.pga_gains):
                 if self.hw_ver == '[N]':
@@ -491,18 +518,29 @@ def serial_cmd(args):
 
 def set_voltage_cmd(args):
     daq = CalibDAQ(args.port)
-
-    daq.set_analog(args.volts)
-
+    channels = []
+    if not args.channel:
+        channels = range(1, daq.dac_slots + 1)
+    else:
+        channels.append(args.channel)
+    for ch in channels:
+        daq.set_analog(args.volts, ch)    
     if args.interactive:
         print("Press Ctrl-C to exit")
         try:
             while True:
-                print("Enter new voltage: ", end='')
-                try:
-                    daq.set_analog(float(raw_input()))
-                except ValueError:
-                    print("Invalid value!")
+                if daq.model_str == 'EM08C-RRLL':
+                    print("Enter new current (mA): ", end='')                    
+                else:
+                    print("Enter new voltage (V): ", end='')
+                value = float(raw_input())
+                for ch in channels:
+                    print(ch)
+                    try:
+                        daq.set_analog(value, ch)
+                        time.sleep(.1)
+                    except ValueError:
+                        print("Invalid value!")
         except KeyboardInterrupt:
             pass
 
@@ -521,10 +559,11 @@ def calib_cmd(args, test=False):
 
     if test:
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
-        if daq.dac_slots < 2:
+        if daq.dac_slots < 2 or daq.model_str == 'EM08C-RRLL':
             daq.test_dac(meter, args.json)
-        daq.test_adc(args.json)
-        if daq.npios > 0:
+        if daq.hw_ver != "EM08C-RRLL":
+            daq.test_adc(args.json)
+        if daq.hw_ver in ["[S]", "[N]", "[M]"]:
             daq.test_pio(args.json)
     elif args.show:
         logging.info(title("DAC calibration"))
@@ -551,10 +590,10 @@ def calib_cmd(args, test=False):
             pass
             daq.calibrate_se(args.json)
             daq.calibrate_de(args.json)
-        else:
+        elif daq.hw_ver != "EM08C-RRLL":
             daq.calibrate_adc_offset(args.json)
             daq.calibrate_adc_gain(args.json)
-
+            
 
 def main():
     # setup the logger
@@ -613,6 +652,7 @@ def main():
     vparser.add_argument('-i', '--interactive', action='store_true',
                          help='Interactively ask for voltage values')
     vparser.add_argument('volts', type=float, help='Output voltage')
+    vparser.add_argument('-ch', '--channel', type=int, help='Output channel')
     vparser.set_defaults(func=set_voltage_cmd)
 
     # 'serial' command parser

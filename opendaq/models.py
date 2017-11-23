@@ -168,7 +168,7 @@ class ModelTP08RRLL(DAQModel):
             self, fw_ver, serial,
             model_str='EM08C-RRLL', serial_fmt='TP08x13%04d',
             adc_slots=0, dac_slots=4, npios=4, nleds=4,
-            dac=DAC(bits=16, vmin=0, vmax=40),
+            dac=DAC(bits=16, vmin=0, vmax=40.96),
             adc=ADC(bits=16, vmin=-24, vmax=24,
                     pga_gains=Gains.TP0X.values,
                     pinputs=[0], ninputs=[0])

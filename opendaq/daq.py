@@ -286,7 +286,7 @@ class DAQ(object):
         "param raw: Raw ADC value.
         :raises: ValueError
         """
-        self.send_command(mkcmd(CMD.SET_DAC, 'hB', int(round(raw)), number), 'hB')[0]
+        return self.send_command(mkcmd(CMD.SET_DAC, 'hB', int(round(raw)), number), 'hB')[0]
 
     def set_analog(self, volts, number=1):
         """Set DAC output (volts).
@@ -294,7 +294,7 @@ class DAQ(object):
         :param volts: DAC output value in volts.
         :raises: ValueError
         """
-        self.set_dac(self.__model.volts_to_raw(volts, number - 1), number)
+        return self.set_dac(self.__model.volts_to_raw(volts, number - 1), number)
 
     def read_adc(self):
         """Read data from ADC and return the raw value.
