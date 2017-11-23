@@ -36,7 +36,7 @@ def yes_no(question):
     print('%s [y/n]' % question)
 
     while True:
-        answer = raw_input().lower()
+        answer = input().lower()
         if answer in ('y', 'n'):
             return answer == 'y'
         else:
@@ -376,12 +376,12 @@ class CalibDAQ(DAQ):
                 rows = [['Input', 'Read (mA)']]
                 ref = 10.0
                 for ch in range (1, self.dac_slots + 1):
-                    print("Connect the analog output %d to the power and press Intro." % ch)
-                    raw_input()
+                    while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % ch):
+                        pass
                     r = self.set_analog(ref, ch)
                     while not(r):
                         print("Powering error. Try again and press Intro.")
-                        raw_input()
+                        while not yes_no(
                         r = self.set_analog(ref, ch)
                     read_value = float(raw_input("Enter the measured value (mA): "))
                     rows.append([ch, read_value])
