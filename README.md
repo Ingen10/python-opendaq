@@ -8,7 +8,7 @@ Python binding for openDAQ hardware.
 
 openDAQ libraries and examples are compatible with Python 2.7 and 3.X.
 
-Go to [openDAQ documentation](http://python-opendaq.readthedocs.io/en/latest/)
+Go to [openDAQ documentation](http://opendaq-python.readthedocs.io/en/latest/)
 for complete documentation of the packet.
 
 * * *
@@ -105,7 +105,7 @@ Start the experiment and keep receiving measured data until it has ended reading
     	print "data=", stream_exp.read()
 ```
 
-Go to **[openDAQ documentation](http://python-opendaq.readthedocs.io/en/latest/ "DAQ.py walkthrough")** in *ReadTheDocs* to read more information about the library.
+Go to **[openDAQ documentation](http://opendaq-python.readthedocs.io/en/latest/ "DAQ.py walkthrough")** in *ReadTheDocs* to read more information about the library.
 
 There are some basic example scripts included in this repository (see */examples* folder) to help you
 understanding the syntaxis.
