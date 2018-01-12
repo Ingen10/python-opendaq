@@ -1,10 +1,14 @@
-# opendaq-python
+# python-opendaq
+
+[![PyPI version](https://badge.fury.io/py/opendaq.svg)](https://badge.fury.io/py/opendaq)
+[![Build Status](https://travis-ci.org/openDAQ/python-opendaq.svg?branch=master)](https://travis-ci.org/openDAQ/python-opendaq)
+[![Documentation Status](https://readthedocs.org/projects/opendaq-python/badge/?version=latest)](http://opendaq-python.readthedocs.io/en/latest/?badge=latest)
 
 Python binding for openDAQ hardware.
 
 openDAQ libraries and examples are compatible with Python 2.7 and 3.X.
 
-Go to [openDAQ documentation](http://opendaq-python.readthedocs.io/en/latest/)
+Go to [openDAQ documentation](http://python-opendaq.readthedocs.io/en/latest/)
 for complete documentation of the packet.
 
 * * *
@@ -38,8 +42,8 @@ To install the development version (it is highly recommended to use a
 [virtual environment](https://virtualenv.pypa.io/en/stable/) for this):
 
 ```sh
-    $ git clone github.com/opendaq/opendaq-python
-    $ cd opendaq-python
+    $ git clone github.com/opendaq/python-opendaq
+    $ cd python-opendaq
     $ python setup.py install
 ```
 
@@ -101,7 +105,7 @@ Start the experiment and keep receiving measured data until it has ended reading
     	print "data=", stream_exp.read()
 ```
 
-Go to **[openDAQ documentation](http://opendaq-python.readthedocs.io/en/latest/ "DAQ.py walkthrough")** in *ReadTheDocs* to read more information about the library.
+Go to **[openDAQ documentation](http://python-opendaq.readthedocs.io/en/latest/ "DAQ.py walkthrough")** in *ReadTheDocs* to read more information about the library.
 
 There are some basic example scripts included in this repository (see */examples* folder) to help you
 understanding the syntaxis.

@@ -207,17 +207,17 @@ with parameters:
 Parameter            Description             Value       Notes
 ===========     ======================= =============== =====================
 ExpMode           Define data source        0:5           0:ANALOG_IN
-                  or destination                          
+                  or destination
                                                           1:ANALOG_OUT
-                                                          
+
                                                           2:DIGITAL_IN
-                                                          
+
                                                           3:DIGITAL_OUT
-                                                          
+
                                                           4:COUNTER_IN
-                                                          
+
                                                           5:CAPTURE_IN
-                                                          
+
 period            Period of the stream      1:65536
                   experiment
 
@@ -693,7 +693,7 @@ formulas that could be deduced from previous paragraphs. Anyhow, the voltage val
 circuits of the openDAQ devices do not have a perfect ideal behaviour. Thus, a specific calibration is used for each openDAQ device, so that the values read by the ADCs and set in the
 DAC are far more similar to the ideal values.
 
-These values are stored in the permanent EEPROM memory of the openDAQs and used by the *opendaq-python* library to calculate the formulas between the raw codes and voltage values.
+These values are stored in the permanent EEPROM memory of the openDAQs and used by the *opendaq* library to calculate the formulas between the raw codes and voltage values.
 Those calculations are carried in a slighly different manner depending on the openDAQ model. The code of the conversions is in the *model.py* file.
 
 DAC calibration
@@ -760,5 +760,3 @@ Applying calibration to the equation above:
 
 .. math::
     volts = (raw - adc_offset1 - (adc_offset2*gain_ampli) ) / (adc_corr1 * adc_corr2 * adc_base_gain * gain_ampli)
-    
-

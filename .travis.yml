@@ -1,0 +1,17 @@
+language: python
+python:
+  - "2.7"
+  - "3.5"
+  - "3.6"
+install:
+  - pip install -r requirements.txt
+script:
+  - pytest
+
+deploy:
+  provider: pypi
+  user: opendaq
+  password:
+    secure: nx0vIZXqhisnmwbEpGp+5Rr9DPzbv2NCJMLmyGKicD7Jb24s/6/mJco4qnOJp/jl1Y0/SaHg1dLIDSuMl/uQzZVDznnqWFkZsVVIgJm4TlKpZ03xBo78/hm0LVUQTianTOP500nwaTTQ+P6uuDpFV1B3kLZDWhVo9SbQCRm8/XzPsipPvV14V6RHZH7g4Ec+CornrBNam4TPrPaQ7Fieiq4r3VWDhc6Wgw65uEQOJ1p5fPf8dVTberEWLI42pdaD02SJ7gh61ymMk5texVcdGZZaHIrhO98pKxzx7/bazTR7pbLE5Wr56ssA3fux6+Dxxumu3QuLSpP1qlFtKKVi4znswxNXJ2Vm0RVegnpNmzHVY/fnBz5pnYu0xkA/9V9vuMVwV29C4KUEFBE9YDI4TWw9UcF/Az+WAovs2YdY7iIzcXErTxWa6LejjBwfQYCZx2wihRqOo91Zv+aOwx61f8ZREVTgIKdP9btvm/ooG2BH7S8vNokeRIh+Bm9S3uPmONuTq7nO2Yrj+0bhzyIx2YhWutS6iiSesQXG0lHCsrtLAg1ig2heTpSfbpE8svXuIu7zqsiKpzHNWHZpOQ3ZvySAJCRcd/EnG8ZW8QAmfk3KKvnjABNBtL9Z9ljoxBeERUROgQ8PgnTQTIx401xPOEaMUJz7aRTAjpNWXKCEyTI=
+  on:
+    tags: true

@@ -1,0 +1,6 @@
+pyserial
+numpy
+terminaltables
+pytest
+flake8
+coverage
