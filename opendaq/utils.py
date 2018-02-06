@@ -378,7 +378,7 @@ class CalibDAQ(DAQ):
                 for i, value in enumerate(x):
                     items['readings'].append({'dc_ref': value, 'dc_read': round(y[i], 4)})
         else:
-            if self.model_str == 'EM08C-RRLL':
+            if self.dac_slots > 2:
                 logging.info("Target: 10.0 mA")
                 rows = [['Input', 'Read (mA)']]
                 ref = 10.0
@@ -395,7 +395,7 @@ class CalibDAQ(DAQ):
                     if report:
                         items.append({'dc_range': dac_range, 'number': ch, 'type': 'current_output', 'unit': 'mA',
                                       'readings': []})
-                        items['readings'].append({'dc_ref': ref, 'dc_read': round(read_value, 4)})
+                        items[ch-1]['readings'].append({'dc_ref': ref, 'dc_read': round(read_value, 4)})
                 logging.info(AsciiTable(rows).table)
 
             else:
@@ -452,7 +452,8 @@ class CalibDAQ(DAQ):
                     rows.append(['%1.1f V' % volts, '%1.3f V' % val,
                                  '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ["TP08", "TP04AR", "TP04AB", "TP8X_ABRR"]:
+        elif self.hw_ver in ["EM08S-ABRR", "TP04AR", "TP04AB", "EM08C-LLLB", "EM08C-RRLL"]:
+            print("hello!: ", self.hw_ver)
             volts = 0
             if report:
                 max_err = np.zeros(len(self.pinputs))
@@ -577,7 +578,7 @@ def calib_cmd(args, test=False):
 
     if test:
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
-        if daq.dac_slots < 2 or daq.model_str == 'EM08C-RRLL':
+        if daq.dac_slots != 2:  # only devices with tacho trigger DAC have 2 outputs
             daq.test_dac(meter, args.json)
         if daq.hw_ver != "EM08C-RRLL":
             daq.test_adc(args.json)
