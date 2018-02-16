@@ -112,7 +112,7 @@ class ModelTP08ABRR(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='EM08S-ABRR', serial_fmt='TP08x10%04d',
+            model_str='TP08ABRR', serial_fmt='TP08x10%04d',
             adc_slots=8, dac_slots=2, npios=4, nleds=4,
             dac=DAC(bits=16, vmin=-24, vmax=24),
             adc=ADC(bits=16, vmin=-24, vmax=24,
@@ -166,7 +166,7 @@ class ModelTP08RRLL(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='EM08C-RRLL', serial_fmt='TP08x13%04d',
+            model_str='TP08RRLL', serial_fmt='TP08x13%04d',
             adc_slots=0, dac_slots=4, npios=4, nleds=0,
             dac=DAC(bits=16, vmin=0, vmax=40.96),
             adc=ADC(bits=16, vmin=-24, vmax=24,
@@ -184,7 +184,7 @@ class ModelTP08LLLB(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='EM08C-LLLB', serial_fmt='TP08x14%04d',
+            model_str='TP08LLLB', serial_fmt='TP08x14%04d',
             adc_slots=4, dac_slots=6, npios=0, nleds=2,
             dac=DAC(bits=16, vmin=0, vmax=40.96),
             adc=ADC(bits=16, vmin=-24, vmax=24,
