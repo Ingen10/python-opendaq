@@ -196,3 +196,19 @@ class ModelTP08LLLB(DAQModel):
         return pinput - 1, len(self.adc.pinputs) + pinput - 1
 
 
+class ModelTP08LLLL(DAQModel):
+    _id = 15
+
+    def __init__(self, fw_ver, serial):
+        DAQModel.__init__(
+            self, fw_ver, serial,
+            model_str='TP08LLLL', serial_fmt='TP08x15%04d',
+            adc_slots=0, dac_slots=8, npios=0, nleds=0,
+            dac=DAC(bits=16, vmin=0, vmax=40.96),
+            adc=ADC(bits=16, vmin=-24, vmax=24,
+                    pga_gains=Gains.TP0X.values,
+                    pinputs=[0], ninputs=[0])
+        )
+
+    def _get_adc_slots(self, gain_id, pinput, ninput):
+        return pinput - 1, len(self.adc.pinputs) + pinput - 1
