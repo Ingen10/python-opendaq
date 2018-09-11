@@ -138,6 +138,8 @@ class CalibDAQ(DAQ):
         logging.info(AsciiTable(rows).table)
 
     def calibrate_adc_offset(self, report=False):
+        if len(self.pinputs) < 2:
+            return
         if report:
             f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
             data = json.load(f)
@@ -188,6 +190,8 @@ class CalibDAQ(DAQ):
             f.close()
 
     def calibrate_adc_gain(self, report=False):
+        if len(self.pinputs) < 2:
+            return
         if report:
             f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
             data = json.load(f)
