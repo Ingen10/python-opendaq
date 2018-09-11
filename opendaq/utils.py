@@ -405,6 +405,8 @@ class CalibDAQ(DAQ):
             f.close()
 
     def test_adc(self, report=False):
+        if len(self.pinputs) < 2:
+            return
         logging.info(title("ADC calibration test"))
         if report:
             dc_range = self.adc_range[1] - self.adc_range[0]
@@ -417,6 +419,7 @@ class CalibDAQ(DAQ):
                 data['model'] = self.model_str
                 data['serial'] = self.serial
                 data['time'] = int(time.time())
+                data['items'] = []
             items = []
             for j, pinput in enumerate(self.pinputs):
                 items.append({'type': 'stat_input', 'dc_range': dc_range,
@@ -433,7 +436,7 @@ class CalibDAQ(DAQ):
                     val = self.read_analog()
                     err = abs(100 * (val - volts) / 12.)
                     if report:
-                        items[j].readings.append({'gain': self.pga_gains[0], 'dc_ref': round(volts, 4),
+                        items[j]['readings'].append({'gain': self.pga_gains[0], 'dc_ref': round(volts, 4),
                                                   'dc_read': '%1.3f' % round(val, 4)})
                     rows.append(['%1.1f V' % volts, '%1.3f V' % val,
                                  '%0.2f %%' % err])
@@ -500,7 +503,7 @@ class CalibDAQ(DAQ):
                     rows.append([pinput, '%1.3f V' % val, '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
         if report:
-            data['items'] = items
+            data['items'].extend(items)
             f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
             json.dump(data, f, indent=2)
             f.close()
