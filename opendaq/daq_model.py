@@ -52,7 +52,7 @@ class DAQModel(object):
 
     def __init__(self, fw_ver, serial, model_str='', serial_fmt='%d',
                  adc=None, dac=None, adc_slots=0, dac_slots=0,
-                 npios=0, nleds=0):
+                 npios=0, nleds=0, shunts=False):
         assert type(adc) is ADC, "adc argument must be an instance of ADC"
         assert type(dac) is DAC, "dac argument must be an instance of DAC"
 
@@ -62,6 +62,7 @@ class DAQModel(object):
         self.serial_fmt = serial_fmt
         self.npios = npios
         self.nleds = nleds
+        self.shunts = shunts        
         self.dac = dac
         self.adc = adc
         self.dac_slots = dac_slots
@@ -127,6 +128,12 @@ class DAQModel(object):
     def check_pio(self, number):
         if not (1 <= number <= self.npios):
             raise ValueError("PIO number out of range")
+
+    def check_shunt(self, number):
+        if (self.shunts != True):
+            raise ValueError("Model does not have shunt resistors")
+        if not (1 <= number <= self.adc_slots/2):
+            raise ValueError("Shunt resistor number out of range")
 
     def check_port(self, value):
         if not (0 <= value < 2**(self.npios + 1)):

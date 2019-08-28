@@ -105,7 +105,6 @@ class ModelN(DAQModel):
     def _get_adc_slots(self, gain_id, pinput, ninput):
         return pinput - 1, len(self.adc.pinputs) + pinput - 1
 
-
 class ModelTP08ABRR(DAQModel):
     _id = 10
 
@@ -114,6 +113,23 @@ class ModelTP08ABRR(DAQModel):
             self, fw_ver, serial,
             model_str='TP08ABRR', serial_fmt='TP08x10%04d',
             adc_slots=8, dac_slots=2, npios=4, nleds=4,
+            dac=DAC(bits=16, vmin=-24, vmax=24),
+            adc=ADC(bits=16, vmin=-24, vmax=24,
+                    pga_gains=Gains.TP0X.values,
+                    pinputs=[1, 2, 3, 4], ninputs=[0])
+        )
+
+    def _get_adc_slots(self, gain_id, pinput, ninput):
+        return pinput - 1, len(self.adc.pinputs) + pinput - 1
+
+class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for loop current
+    _id = 17
+
+    def __init__(self, fw_ver, serial):
+        DAQModel.__init__(
+            self, fw_ver, serial,
+            model_str='TP08ABRR2', serial_fmt='TP08x10%04d',
+            adc_slots=8, dac_slots=2, npios=4, nleds=4, shunts=True,
             dac=DAC(bits=16, vmin=-24, vmax=24),
             adc=ADC(bits=16, vmin=-24, vmax=24,
                     pga_gains=Gains.TP0X.values,
@@ -212,3 +228,21 @@ class ModelTP08LLLL(DAQModel):
 
     def _get_adc_slots(self, gain_id, pinput, ninput):
         return pinput - 1, len(self.adc.pinputs) + pinput - 1
+
+
+class ModelTP08LLAR(DAQModel):
+    _id = 16
+
+    def __init__(self, fw_ver, serial):
+        DAQModel.__init__(
+            self, fw_ver, serial,
+            model_str='TP08LLAR', serial_fmt='TP08x16%04d',
+            adc_slots=4, dac_slots=4, npios=2, nleds=2, shunts=True,
+            dac=DAC(bits=16, vmin=0, vmax=40.96),
+            adc=ADC(bits=16, vmin=-24, vmax=24,
+                    pga_gains=Gains.TP0X.values,
+                    pinputs=[1, 2], ninputs=[0])
+        )
+
+    def _get_adc_slots(self, gain_id, pinput, ninput):
+        return pinput - 1, len(self.adc.pinputs) + pinput - 1        
