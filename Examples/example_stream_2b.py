@@ -14,11 +14,11 @@ daq = DAQ(port)
 # Set Analog voltage
 daq.set_analog(0.9)
 
-stream1 = daq.create_stream(ExpMode.ANALOG_IN, 200, continuous=True)
-stream1.analog_setup(pinput=8, gain=Gains.S.x1)
+stream1 = daq.create_stream(ExpMode.ANALOG_IN, 20, continuous=True)
+stream1.analog_setup(pinput=8, gain=Gains.N.x1)
 
-stream2 = daq.create_stream(ExpMode.ANALOG_IN, 300, continuous=True)
-stream2.analog_setup(pinput=7, gain=Gains.S.x1)
+stream2 = daq.create_stream(ExpMode.ANALOG_IN, 30, continuous=True)
+stream2.analog_setup(pinput=6, gain=Gains.N.x16)
 
 daq.start()
 
@@ -28,8 +28,6 @@ for i in range(4):
     print("data2: ", stream2.read())
 
 daq.stop()
-
-stream2.analog_setup(pinput=6, gain=Gains.S.x1)
 
 print("start Again!")
 daq.start()

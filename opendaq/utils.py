@@ -452,8 +452,7 @@ class CalibDAQ(DAQ):
                     rows.append(['%1.1f V' % volts, '%1.3f V' % val,
                                  '%0.2f %%' % err])
                 logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ["EM08S-ABRR", "TP04AR", "TP04AB", "EM08C-LLLB", "EM08C-RRLL"]:
-            print("hello!: ", self.hw_ver)
+        elif self.hw_ver in ["TP08ABRR", "TP04AR", "TP04AB", "TP08LLLB", "TP08RRLL"]:
             volts = 0
             if report:
                 max_err = np.zeros(len(self.pinputs))
