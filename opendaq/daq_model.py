@@ -22,29 +22,13 @@
 from __future__ import division
 import time
 from collections import namedtuple
-from enum import IntEnum
 
 MIN_FW_VERSION = 131
 
 CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
-DAC = namedtuple('DAC', ['bits', 'vmin', 'vmax'])
-ADC = namedtuple('ADC', ['bits', 'vmin', 'vmax', 'pga_gains',
-                         'pinputs', 'ninputs'])
-
-
-class PGAGains(IntEnum):
-    """A wrapper around IntEnum for defining the gain values of a PGA."""
-    @classmethod
-    def new(cls, values):
-        def val_str(val):
-            if 0 < val < 1:
-                return 'x0%s' % str(val)[2:4]
-            return 'x%d' % val
-
-        a = cls('Gains', [val_str(v) for v in values], start=0)
-        a.values = values
-        return a
-
+INP = namedtuple('INP', ['bits', 'vmin', 'vmax', 'pga_gains',
+                         'modes', 'unit'])
+OUTP = namedtuple('OUTP', ['bits', 'vmin', 'vmax', 'unit'])
 
 class DAQModel(object):
     """Base class for defining OpenDAQ models by inheritance."""
@@ -52,9 +36,7 @@ class DAQModel(object):
 
     def __init__(self, fw_ver, serial, model_str='', serial_fmt='%d',
                  adc=None, dac=None, adc_slots=0, dac_slots=0,
-                 npios=0, nleds=0, shunts=False):
-        assert type(adc) is ADC, "adc argument must be an instance of ADC"
-        assert type(dac) is DAC, "dac argument must be an instance of DAC"
+                 npios=0, nleds=0):
 
         self.fw_ver = fw_ver
         self.serial = serial
@@ -125,29 +107,7 @@ class DAQModel(object):
             time.sleep(.05)
             self.adc_calib[i] = reg
 
-    def check_pio(self, number):
-        if not (1 <= number <= self.npios):
-            raise ValueError("PIO number out of range")
-
-    def check_shunt(self, number):
-        if (self.shunts != True):
-            raise ValueError("Model does not have shunt resistors")
-        if not (1 <= number <= self.adc_slots/2):
-            raise ValueError("Shunt resistor number out of range")
-
-    def check_port(self, value):
-        if not (0 <= value < 2**(self.npios + 1)):
-            raise ValueError("Port number out of range")
-
-    def check_adc_settings(self, pinput, ninput, gain):
-        if pinput not in self.adc.pinputs:
-            raise ValueError("Invalid positive input selection")
-        if ninput not in self.adc.ninputs:
-            raise ValueError("Invalid negative input selection")
-        if gain not in range(len(self.adc.pga_gains)):
-            raise ValueError("Invalid gain selection")
-
-    def _get_adc_slots(self, gain_id, pinput, ninput):
+    def _get_adc_slots(self, gain_id, pinput, mode):
         """Return the indexes of the two ADC's calibration slots.
         The second one is affected by the PGA gain.
         :param gain_id: ID of the analog configuration setup.
@@ -157,7 +117,29 @@ class DAQModel(object):
         """
         raise NotImplementedError
 
-    def raw_to_volts(self, raw, gain_id, pinput, ninput=0):
+    def check_pio(self, number):
+        if not (1 <= number <= self.npios):
+            raise ValueError("PIO number out of range")
+
+    def check_port(self, value):
+        if not (0 <= value < 2**(self.npios + 1)):
+            raise ValueError("Port number out of range")
+
+    def check_adc_settings(self, pinput, mode, gain):
+        if not (1 <= pinput <= len(self.adc)):
+            raise ValueError("Invalid positive input selection")
+        if mode not in self.adc[pinput-1].modes:
+            raise ValueError("Invalid mode selection")
+        if gain not in range(len(self.adc[pinput-1].pga_gains)):
+            raise ValueError("Invalid gain selection")
+
+    def __check_dac_value(self, number, volts):
+        if not (0 <= number < len(self.dac)):
+            raise ValueError("Invalid output port selection")       
+        if not (self.dac[number].vmin <= volts <= self.dac[number].vmax):
+            raise ValueError("DAC voltage out of range")  
+
+    def raw_to_volts(self, raw, gain_id, pinput, mode=0):
         """
         Convert a raw value or a list of values to volts.
         Device calibration values are used for the calculation.
@@ -169,12 +151,12 @@ class DAQModel(object):
         :returns: Value in volts.
         """
         # obtain the calibration gains and offsets
-        slot1, slot2 = self._get_adc_slots(gain_id, pinput, ninput)
+        slot1, slot2 = self._get_adc_slots(gain_id, pinput, mode)
         gain1, offs1 = (1., 0.) if slot1 < 0 else self.adc_calib[slot1]
         gain2, offs2 = (1., 0.) if slot2 < 0 else self.adc_calib[slot2]
 
-        adc_gain = 2.**(self.adc.bits-1)/self.adc.vmax
-        pga_gain = self.adc.pga_gains[gain_id]
+        adc_gain = 2.**(self.adc[pinput-1].bits-1)/self.adc[pinput-1].vmax
+        pga_gain = self.adc[pinput-1].pga_gains[gain_id]
 
         gain = adc_gain*pga_gain*gain1*gain2
         offset = offs1 + offs2*pga_gain
@@ -183,10 +165,6 @@ class DAQModel(object):
             return [round((v - offset)/gain, 5) for v in raw]
         except TypeError:
             return round((raw - offset)/gain, 5)
-
-    def __check_dac_value(self, volts):
-        if not (self.dac.vmin <= volts <= self.dac.vmax):
-            raise ValueError("DAC voltage out of range")
 
     def volts_to_raw(self, volts, number):
         """Convert a value in volts to a raw value.

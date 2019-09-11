@@ -20,11 +20,29 @@
 
 
 from __future__ import division
-from .daq_model import DAQModel, ADC, DAC, PGAGains
+from .daq_model import DAQModel, INP, OUTP
 
 
-class Gains:
-    """Valid PGA gains by OpenDAQ model."""
+INP_A = INP(bits=16, vmin=-24, vmax=24,
+                    pga_gains=[1, 2, 4, 5, 8, 10, 16, 32],
+                    modes=[0, 1], unit='V')
+
+INP_B = INP(bits=16, vmin=-24, vmax=24,
+                    pga_gains=[1, 2, 4, 5, 8, 10, 16, 32],
+                    modes=[0], unit='V')
+
+INP_M = INP(bits=16, vmin=-4.096, vmax=4.096,
+                    pga_gains=[1./3, 1, 2, 10, 100],
+                    modes=[0, 5, 6, 7, 8, 25], unit='V')
+
+OUTP_V = OUTP(bits=16, vmin=-4.096, vmax=4.096, unit='V')
+
+OUTP_T = OUTP(bits=16, vmin=-24, vmax=24, unit='V')
+
+OUTP_L = OUTP(bits=16, vmin=0, vmax=40.96, unit='mA')
+
+
+
     M = PGAGains.new([1./3, 1, 2, 10, 100])
     S = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20])
     N = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])

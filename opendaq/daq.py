@@ -42,7 +42,6 @@ class CMD(IntEnum):
     PIO = 3
     AIN_ALL = 4
     PIO_DIR = 5
-    RSHUNT = 6
     PORT = 7
     PORT_DIR = 9
     PWM_INIT = 10
@@ -393,34 +392,6 @@ class DAQ(object):
         self.__model.check_pio(number)
 
         return self.send_command(mkcmd(CMD.PIO, 'B', number), 'BB')[1]
-
-    def set_shunt(self, number, value):
-        """Write SHUNT output value.
-        Set the value of the SHUNT resistor (0: off, 1: on).
-
-        :param number: SHUNT number.
-        :param value: digital value (0: off, 1: on)
-        :raises: ValueError
-        """
-        self.__model.check_shunt(number)
-
-        if value not in [0, 1]:
-            raise ValueError("digital value out of range")
-
-        self.send_command(mkcmd(CMD.RSHUNT, 'BB', number,
-                                int(bool(value))), 'BB')[1]
-
-    def read_shunt(self, number):
-        """Read SHUNT input value (0: off, 1: on).
-
-        :param number: SHUNT number.
-        :returns: Read value.
-        :raises: ValueError
-        """
-        self.__model.check_shunt(number)
-
-        return self.send_command(mkcmd(CMD.RSHUNT, 'B', number), 'BB')[1]
-
 
     def set_pio_dir(self, number, output):
         """Configure PIO direction.
