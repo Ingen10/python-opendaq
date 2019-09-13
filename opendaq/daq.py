@@ -109,7 +109,7 @@ class DAQ(object):
         self.__measuring = False
         self.__gain = 0
         self.__pinput = 1
-        self.__ninput = 0
+        self.__inputmode = 0
         self.__exp = []     # list of experiments
         self.__thread = None
 
@@ -310,7 +310,7 @@ class DAQ(object):
         """
         value = self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
-                                         self.__ninput)
+                                         self.__inputmode)
 
     def read_all(self, nsamples=20, gain=0):
         """Read data from all analog inputs
@@ -326,28 +326,28 @@ class DAQ(object):
         return [self.__model.raw_to_volts(v, gain, i, 0) for i, v in
                 enumerate(values)]
 
-    def conf_adc(self, pinput=8, ninput=0, gain=0, nsamples=20):
+    def conf_adc(self, pinput=8, inputmode=0, gain=0, nsamples=20):
         """Configure the analog-to-digital converter.
 
         Get the parameters for configure the analog-to-digital converter.
 
         :param pinput: Positive input [1:8].
-        :param ninput: Negative input.
+        :param inputmode: Input mode (SE/Diff, shunts activated, etc.)
         :param gain: Analog gain.
         :param nsamples: Number of samples per data point [0-255).
         :raises: ValueError
         """
 
-        self.__model.check_adc_settings(pinput, ninput, int(gain))
+        self.__model.check_adc_settings(pinput, inputmode, int(gain))
 
         if not 0 <= nsamples < 256:
             raise ValueError("samples number out of range")
 
         self.__gain = int(gain)
         self.__pinput = pinput
-        self.__ninput = ninput
+        self.__inputmode = inputmode
 
-        self.send_command(mkcmd(CMD.AIN_CFG, 'BBBB', pinput, ninput,
+        self.send_command(mkcmd(CMD.AIN_CFG, 'BBBB', pinput, inputmode,
                                 int(gain), nsamples), 'hBBBB')
 
     def set_led(self, color, number=1):
@@ -612,7 +612,7 @@ class DAQ(object):
 
         return self.send_command(mkcmd(CMD.GET_STATE_CHANNEL, 'B', number), 'H')[0]
 
-    def __conf_channel(self, number, mode, pinput=1, ninput=0, gain=1,
+    def __conf_channel(self, number, mode, pinput=1, inputmode=0, gain=1,
                        nsamples=1):
         """Configure a channel for a generic stream experiment
         (Stream/External/Burst).
@@ -620,7 +620,7 @@ class DAQ(object):
         :param number: Select a DataChannel number for this experiment
         :param mode: Define data source or destination (use :class:`.ExpMode`).
         :param pinput: Select Positive/SE analog input [1:8]
-        :param ninput: Select Negative analog input.
+        :param inputmode: Input mode (SE/Diff, shunts activated, etc.)
         :param gain: Select PGA multiplier.
         :param nsamples: Number of samples to calculate the mean for each point
             [0:255].
@@ -633,14 +633,14 @@ class DAQ(object):
             raise ValueError("Invalid mode")
 
         if mode == ExpMode.ANALOG_IN:
-            self.__model.check_adc_settings(pinput, ninput, int(gain))
+            self.__model.check_adc_settings(pinput, inputmode, int(gain))
 
         if not 0 <= nsamples < 256:
             raise ValueError("samples number out of range")
 
         return self.send_command(
             mkcmd(CMD.CHANNEL_CFG, 'BBBBBB', number, mode.value, pinput,
-                  ninput, int(gain), nsamples), 'BBBBBB')
+                  inputmode, int(gain), nsamples), 'BBBBBB')
 
     def __setup_channel(self, number, npoints, continuous=False):
         """Configure the experiment's number of points.
@@ -902,7 +902,7 @@ class DAQ(object):
 
             self.__setup_channel(s.number, s.npoints, s.continuous)
             self.__conf_channel(s.number, s.mode, s.pinput,
-                                s.ninput, s.gain, s.nsamples)
+                                s.inputmode, s.gain, s.nsamples)
             self.__trigger_setup(s.number, s.trg_mode, s.trg_value)
 
             if s.get_mode() == ExpMode.ANALOG_OUT:

@@ -47,14 +47,14 @@ class Trigger(IntEnum):
 
 
 class DAQExperiment(object):
-    def analog_setup(self, pinput=1, ninput=0, gain=1, nsamples=20):
+    def analog_setup(self, pinput=1, inputmode=0, gain=1, nsamples=20):
         """Configure a channel for a generic stream experiment.
         """
         if not 0 <= nsamples < 255:
             raise ValueError("samples number out of range")
 
         self.pinput = pinput
-        self.ninput = ninput
+        self.inputmode = inputmode
         self.gain = gain
         self.nsamples = nsamples
         self.signal_data = []
@@ -78,8 +78,8 @@ class DAQExperiment(object):
         self.trg_value = value
 
     def get_params(self):
-        """Return gain, pinput and ninput."""
-        return self.gain, self.pinput, self.ninput
+        """Return gain, pinput and inputmode."""
+        return self.gain, self.pinput, self.inputmode
 
     def get_mode(self):
         """Return mode."""

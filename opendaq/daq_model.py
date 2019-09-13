@@ -27,7 +27,6 @@ from enum import IntEnum
 
 MIN_FW_VERSION = 131
 
-
 class PGAGains(IntEnum):
     """A wrapper around IntEnum for defining the gain values of a PGA."""
     @classmethod

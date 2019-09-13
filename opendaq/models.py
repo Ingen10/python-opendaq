@@ -31,7 +31,7 @@ class Gains:
     TP0X = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])
 
 INP_A = INP(bits=16, vmin=-24, vmax=24,
-                    pga_gains=Gains.TP0X.values,
+                    pga_gains=PGAGains.new([1./3, 1, 2, 10, 100]),
                     modes=[0, 1], unit='V')
 INP_B = INP(bits=16, vmin=-24, vmax=24,
                     pga_gains=Gains.TP0X.values,

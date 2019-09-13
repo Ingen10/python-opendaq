@@ -290,12 +290,12 @@ class CalibDAQ(DAQ):
         logging.info("Calibrating ADC (Differential-ended mode)")
 
         calib = self.get_adc_calib()
-        ninputs = [2, 1, 4, 3, 6, 5, 8, 7]
+        inputmodes = [2, 1, 4, 3, 6, 5, 8, 7]
 
         self.set_analog(0)
 
         for i, ch in enumerate(self.pinputs):
-            self.conf_adc(ch, ninputs[i])
+            self.conf_adc(ch, inputmodes[i])
             raw = self.read_adc()
             idx = len(self.pinputs) + i
             calib[idx] = CalibReg(calib[idx].gain, raw)
