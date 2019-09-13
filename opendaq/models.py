@@ -22,28 +22,20 @@
 from __future__ import division
 from .daq_model import DAQModel, INP, OUTP, PGAGains
 
-
-class Gains:
-    """Valid PGA gains by OpenDAQ model."""
-    M = PGAGains.new([1./3, 1, 2, 10, 100])
-    S = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20])
-    N = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])
-    TP0X = PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32])
-
 INP_A = INP(bits=16, vmin=-24, vmax=24,
-                    pga_gains=PGAGains.new([1./3, 1, 2, 10, 100]),
+                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
                     modes=[0, 1], unit='V')
 INP_B = INP(bits=16, vmin=-24, vmax=24,
-                    pga_gains=Gains.TP0X.values,
+                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
                     modes=[0], unit='V')
 INP_M = INP(bits=16, vmin=-4.096, vmax=4.096,
-                    pga_gains=Gains.M.values,
+                    pga_gains=PGAGains.new([1./3, 1, 2, 10, 100]),
                     modes=[0, 5, 6, 7, 8, 25], unit='V')
 INP_S = INP(bits=16, vmin=-12.0, vmax=12.0,
-                    pga_gains=Gains.S.values,
+                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20]),
                     modes=list(range(0, 9)), unit='V')
 INP_N = INP(bits=16, vmin=-12.288, vmax=12.288,
-                    pga_gains=Gains.N.values,
+                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
                     modes=list(range(0, 9)), unit='V')
 
 OUTP_M = OUTP(bits=16, vmin=-4.096, vmax=4.096, unit='V')

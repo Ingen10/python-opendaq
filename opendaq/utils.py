@@ -54,7 +54,7 @@ class CalibDAQ(DAQ):
         self.model_str = model.model_str
         self.serial = model.serial
         self.pinputs = model.adc.pinputs
-        self.pga_gains = model.adc.pga_gains
+        self.pga_gains = model.adc.pga_gains.values
         self.dac_slots = model.dac_slots
         self.npios = model.npios
         self.dac_range = (model.dac.vmin, model.dac.vmax)

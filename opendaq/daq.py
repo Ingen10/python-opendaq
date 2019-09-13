@@ -337,7 +337,14 @@ class DAQ(object):
         :param nsamples: Number of samples per data point [0-255).
         :raises: ValueError
         """
-
+        if(type(gain) == str):
+            correct_gain = False
+            for g in self.__model.adc[pinput-1].pga_gains:
+                if gain == g.name:
+                    gain = g.value
+                    correct_gain = True
+            if not(correct_gain):
+                raise ValueError("Invalid gain selection")
         self.__model.check_adc_settings(pinput, inputmode, int(gain))
 
         if not 0 <= nsamples < 256:
