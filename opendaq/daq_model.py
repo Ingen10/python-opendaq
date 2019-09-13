@@ -22,8 +22,24 @@
 from __future__ import division
 import time
 from collections import namedtuple
+from enum import IntEnum
+
 
 MIN_FW_VERSION = 131
+
+
+class PGAGains(IntEnum):
+    """A wrapper around IntEnum for defining the gain values of a PGA."""
+    @classmethod
+    def new(cls, values):
+        def val_str(val):
+            if 0 < val < 1:
+                return 'x0%s' % str(val)[2:4]
+            return 'x%d' % val
+
+        a = cls('Gains', [val_str(v) for v in values], start=0)
+        a.values = values
+        return a
 
 CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
 INP = namedtuple('INP', ['bits', 'vmin', 'vmax', 'pga_gains',
@@ -44,7 +60,6 @@ class DAQModel(object):
         self.serial_fmt = serial_fmt
         self.npios = npios
         self.nleds = nleds
-        self.shunts = shunts        
         self.dac = dac
         self.adc = adc
         self.dac_slots = dac_slots
@@ -125,6 +140,12 @@ class DAQModel(object):
         if not (0 <= value < 2**(self.npios + 1)):
             raise ValueError("Port number out of range")
 
+    def __check_dac_value(self, number, volts):
+        if not (0 <= number < len(self.dac)):
+            raise ValueError("Invalid output port selection")       
+        if not (self.dac[number].vmin <= volts <= self.dac[number].vmax):
+            raise ValueError("DAC voltage out of range")  
+
     def check_adc_settings(self, pinput, mode, gain):
         if not (1 <= pinput <= len(self.adc)):
             raise ValueError("Invalid positive input selection")
@@ -132,12 +153,6 @@ class DAQModel(object):
             raise ValueError("Invalid mode selection")
         if gain not in range(len(self.adc[pinput-1].pga_gains)):
             raise ValueError("Invalid gain selection")
-
-    def __check_dac_value(self, number, volts):
-        if not (0 <= number < len(self.dac)):
-            raise ValueError("Invalid output port selection")       
-        if not (self.dac[number].vmin <= volts <= self.dac[number].vmax):
-            raise ValueError("DAC voltage out of range")  
 
     def raw_to_volts(self, raw, gain_id, pinput, mode=0):
         """
@@ -151,7 +166,10 @@ class DAQModel(object):
         :returns: Value in volts.
         """
         # obtain the calibration gains and offsets
+
         slot1, slot2 = self._get_adc_slots(gain_id, pinput, mode)
+        print("slots:",slot1, slot2)
+        
         gain1, offs1 = (1., 0.) if slot1 < 0 else self.adc_calib[slot1]
         gain2, offs2 = (1., 0.) if slot2 < 0 else self.adc_calib[slot2]
 
@@ -175,19 +193,19 @@ class DAQModel(object):
         :returns: Raw value.
         :raises: ValueError: DAC voltage out of range
         """
-        self.__check_dac_value(volts)
+        self.__check_dac_value(number, volts)
 
         try:
             gain, offset = self.dac_calib[number]
         except IndexError:
             raise IndexError('Invalid DAC number')
 
-        base_gain = self.dac.vmax/2**(self.dac.bits - 1)
+        base_gain = self.dac[number].vmax/2**(self.dac[number].bits - 1)
         raw = int(round((volts-offset)/(gain*base_gain)))
 
         # clamp value between DAC limits
-        return max(-1 << (self.dac.bits - 1),
-                   min(raw, (1 << (self.dac.bits - 1)) - 1))
+        return max(-1 << (self.dac[number].bits - 1),
+                   min(raw, (1 << (self.dac[number].bits - 1)) - 1))
 
     @classmethod
     def new(cls, model_id, fw_ver, serial):
