@@ -41,9 +41,9 @@ class PGAGains(IntEnum):
         return a
 
 CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
-INP = namedtuple('INP', ['bits', 'vmin', 'vmax', 'pga_gains',
+INP = namedtuple('INP', ['type_str', 'bits', 'vmin', 'vmax', 'pga_gains',
                          'modes', 'unit'])
-OUTP = namedtuple('OUTP', ['bits', 'vmin', 'vmax', 'unit'])
+OUTP = namedtuple('OUTP', ['type_str', 'bits', 'vmin', 'vmax', 'unit'])
 
 class DAQModel(object):
     """Base class for defining OpenDAQ models by inheritance."""

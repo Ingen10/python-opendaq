@@ -22,27 +22,34 @@
 from __future__ import division
 from .daq_model import DAQModel, INP, OUTP, PGAGains
 
-INP_A = INP(bits=16, vmin=-24, vmax=24,
-                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
-                    modes=[0, 1], unit='V')
-INP_B = INP(bits=16, vmin=-24, vmax=24,
-                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
-                    modes=[0], unit='V')
-INP_M = INP(bits=16, vmin=-4.096, vmax=4.096,
-                    pga_gains=PGAGains.new([1./3, 1, 2, 10, 100]),
-                    modes=[0, 5, 6, 7, 8, 25], unit='V')
-INP_S = INP(bits=16, vmin=-12.0, vmax=12.0,
-                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20]),
-                    modes=list(range(0, 9)), unit='V')
-INP_N = INP(bits=16, vmin=-12.288, vmax=12.288,
-                    pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
-                    modes=list(range(0, 9)), unit='V')
-
-OUTP_M = OUTP(bits=16, vmin=-4.096, vmax=4.096, unit='V')
-OUTP_S = OUTP(bits=16, vmin=0, vmax=4.096, unit='V')
-OUTP_T = OUTP(bits=16, vmin=-24, vmax=24, unit='V')
-OUTP_L = OUTP(bits=16, vmin=0, vmax=40.96, unit='mA')
-
+# Analog input with shunt
+INP_AS = INP(type_str='INP_AS', bits=16, vmin=-24, vmax=24,
+             pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
+             modes=[0, 1], unit='V')
+# Analog input without shut
+INP_A = INP(type_str='INP_A', bits=16, vmin=-24, vmax=24,
+            pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
+            modes=[0], unit='V')
+# Opendaq M analog input
+INP_M = INP(type_str='INP_M', bits=16, vmin=-4.096, vmax=4.096,
+            pga_gains=PGAGains.new([1./3, 1, 2, 10, 100]),
+            modes=[0, 5, 6, 7, 8, 25], unit='V')
+# Opendaq S analog input
+INP_S = INP(type_str='INP_S', bits=16, vmin=-12.0, vmax=12.0,
+            pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20]),
+            modes=list(range(0, 9)), unit='V')
+# Opendaq N analog input
+INP_N = INP(type_str='INP_N', bits=16, vmin=-12.288, vmax=12.288,
+            pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
+            modes=list(range(0, 9)), unit='V')
+# Opendaq M output
+OUTP_M = OUTP(type_str='OUTP_M', bits=16, vmin=-4.096, vmax=4.096, unit='V')
+# Opendaq S output
+OUTP_S = OUTP(type_str='OUTP_S', bits=16, vmin=0, vmax=4.096, unit='V')
+# Tachometer output
+OUTP_T = OUTP(type_str='OUTP_T', bits=16, vmin=-24, vmax=24, unit='V')
+# Current output
+OUTP_L = OUTP(type_str='OUTP_L', bits=16, vmin=0, vmax=40.96, unit='mA')
 
 
 class ModelM(DAQModel):
@@ -118,7 +125,7 @@ class ModelTP08ABRR(DAQModel):
             model_str='TP08ABRR', serial_fmt='TP08x10%04d',
             adc_slots=8, dac_slots=2, npios=4, nleds=4,
             dac=2*[OUTP_T],
-            adc=4*[INP_B]
+            adc=4*[INP_A]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -135,9 +142,9 @@ class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for l
         DAQModel.__init__(
             self, fw_ver, serial,
             model_str='TP08ABRR', serial_fmt='TP08x17%04d',
-            adc_slots=8, dac_slots=2, npios=4, nleds=4,
+            adc_slots=12, dac_slots=2, npios=4, nleds=4,
             dac=2*[OUTP_T],
-            adc=4*[INP_B]
+            adc=4*[INP_AS]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -157,7 +164,7 @@ class ModelTP04AR(DAQModel):
             model_str='TP04AR', serial_fmt='TP04x11%04d',
             adc_slots=4, dac_slots=2, npios=2, nleds=2,
             dac=2*[OUTP_T],
-            adc=2*[INP_B]
+            adc=2*[INP_A]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -177,7 +184,7 @@ class ModelTP04AB(DAQModel):
             model_str='TP04AB', serial_fmt='TP04x12%04d',
             adc_slots=8, dac_slots=2, npios=0, nleds=4,
             dac=2*[OUTP_T],
-            adc=4*[INP_B]
+            adc=4*[INP_A]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -196,8 +203,8 @@ class ModelTP08RRLL(DAQModel):
             self, fw_ver, serial,
             model_str='TP08RRLL', serial_fmt='TP08x13%04d',
             adc_slots=0, dac_slots=4, npios=4, nleds=0,
-            dac=2*[OUTP_T],
-            adc=4*[INP_B]
+            dac=4*[OUTP_L],
+            adc=[]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -217,7 +224,7 @@ class ModelTP08LLLB(DAQModel):
             model_str='TP08LLLB', serial_fmt='TP08x14%04d',
             adc_slots=4, dac_slots=6, npios=0, nleds=2,
             dac=6*[OUTP_L],
-            adc=2*[INP_B]
+            adc=2*[INP_A]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -237,6 +244,7 @@ class ModelTP08LLLL(DAQModel):
             model_str='TP08LLLL', serial_fmt='TP08x15%04d',
             adc_slots=0, dac_slots=8, npios=0, nleds=0,
             dac=8*[OUTP_L],
+            adc=[]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -254,9 +262,9 @@ class ModelTP08LLAR(DAQModel):
         DAQModel.__init__(
             self, fw_ver, serial,
             model_str='TP08LLAR', serial_fmt='TP08x16%04d',
-            adc_slots=4, dac_slots=4, npios=2, nleds=2,
-            dac=2*[OUTP_T],
-            adc=2*[INP_A]
+            adc_slots=6, dac_slots=4, npios=2, nleds=2,
+            dac= 4*[OUTP_L],
+            adc=2*[INP_AS]
         )
 
     def _get_adc_slots(self, gain_id, pinput, mode):

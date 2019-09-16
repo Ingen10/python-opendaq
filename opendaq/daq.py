@@ -204,6 +204,9 @@ class DAQ(object):
         """
         return list(self.__model.dac_calib)  # return a copy of the list
 
+    def get_slots(self):
+        return(self.__model.adc_slots, self.__model.dac_slots)
+
     def get_adc_calib(self):
         """Get the ADC calibration.
 
@@ -218,6 +221,24 @@ class DAQ(object):
         :raises: ValueError, IndexError
         """
         self.__model.write_dac_calib(regs, self.__write_calib_slot)
+
+    def get_adcs(self):
+        """Get model ADCs
+        """
+        return (self.__model.adc)
+
+    def get_dacs(self):
+        """Get model DACS
+        """
+        return(self.__model.dac)
+
+    def get_input_gains(self, pinput):
+        """Get input gains values
+        """
+        print(len(self.__model.adc))
+        if not (1 <= pinput <= len(self.__model.adc)):
+            raise ValueError("Invalid positive input selection")
+        print(self.__model.adc[pinput-1].pga_gains.values)
 
     def set_adc_calib(self, regs):
         """Set the ADC calibration.
