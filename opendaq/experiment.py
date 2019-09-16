@@ -52,6 +52,8 @@ class DAQExperiment(object):
         """
         if not 0 <= nsamples < 255:
             raise ValueError("samples number out of range")
+        if self.model:
+            self.model.check_adc_settings(pinput, inputmode, gain)
 
         self.pinput = pinput
         self.inputmode = inputmode
@@ -125,7 +127,7 @@ class DAQStream(DAQExperiment):
     :raises: LengthError (too many experiments at the same time),
         ValueError (values out of range)
     """
-    def __init__(self, mode, number, period,
+    def __init__(self, model, mode, number, period,
                  npoints=10, continuous=False, buffersize=1000):
         if not 1 <= number <= 4:
             raise ValueError('Invalid number')
@@ -150,6 +152,8 @@ class DAQStream(DAQExperiment):
         self.mode = mode
         self.npoints = npoints
         self.continuous = continuous
+
+        self.model = model
 
         self.ring_buffer = deque(maxlen=buffersize)
         self.mutex_ring_buffer = Lock()

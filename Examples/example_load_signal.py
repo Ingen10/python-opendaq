@@ -4,7 +4,7 @@ generate it through the analog output"""
 from __future__ import print_function
 import os
 import time
-from opendaq import DAQ, ExpMode, Gains
+from opendaq import DAQ, ExpMode
 
 # Change here the serial port in which the openDAQ is connected
 port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
@@ -16,7 +16,7 @@ daq = DAQ(port)
 signal = list(range(4))
 
 stream1 = daq.create_stream(ExpMode.ANALOG_IN, 300, npoints=len(signal))
-stream1.analog_setup(pinput=8, gain=Gains.S.x1)
+stream1.analog_setup(pinput=8, gain='x1')
 
 stream2 = daq.create_stream(ExpMode.ANALOG_OUT, 300, npoints=len(signal))
 stream2.load_signal(signal)

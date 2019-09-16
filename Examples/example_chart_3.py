@@ -4,7 +4,7 @@ and use another experiment to generate the signal"""
 import os
 import time
 import matplotlib.pyplot as plt
-from opendaq import DAQ, ExpMode, Gains
+from opendaq import DAQ, ExpMode
 
 # Change here the serial port in which the openDAQ is connected
 port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
@@ -15,7 +15,7 @@ daq = DAQ(port)
 # Configure the first experiment, the one that will be plotted
 data_rate = 20
 stream1 = daq.create_stream(ExpMode.ANALOG_IN, data_rate, continuous=True)
-stream1.analog_setup(pinput=8, gain=Gains.S.x1)
+stream1.analog_setup(pinput=8, gain='x1')
 
 # Configure the second experiment, a custom signal generated from a stream
 preload_buffer = [-2.5, -1, 0, 1, 2.5]

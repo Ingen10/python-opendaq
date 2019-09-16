@@ -3,7 +3,7 @@
 from __future__ import print_function
 import os
 import time
-from opendaq import DAQ, ExpMode, Gains
+from opendaq import DAQ, ExpMode
 
 # Change here the serial port in which the openDAQ is connected
 port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
@@ -15,10 +15,10 @@ daq = DAQ(port)
 daq.set_analog(0.9)
 
 stream1 = daq.create_stream(ExpMode.ANALOG_IN, 200, continuous=True)
-stream1.analog_setup(pinput=8, gain=Gains.S.x1)
+stream1.analog_setup(pinput=8, gain='x1')
 
 stream2 = daq.create_stream(ExpMode.ANALOG_IN, 300, continuous=True)
-stream2.analog_setup(pinput=7, gain=Gains.S.x1)
+stream2.analog_setup(pinput=7, gain='x1')
 
 daq.start()
 

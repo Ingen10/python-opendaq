@@ -337,19 +337,10 @@ class DAQ(object):
         :param nsamples: Number of samples per data point [0-255).
         :raises: ValueError
         """
-        if(type(gain) == str):
-            correct_gain = False
-            for g in self.__model.adc[pinput-1].pga_gains:
-                if gain == g.name:
-                    gain = g.value
-                    correct_gain = True
-            if not(correct_gain):
-                raise ValueError("Invalid gain selection")
-        self.__model.check_adc_settings(pinput, inputmode, int(gain))
+        gain = self.__model.check_adc_settings(pinput, inputmode, gain)
 
         if not 0 <= nsamples < 256:
             raise ValueError("samples number out of range")
-
         self.__gain = int(gain)
         self.__pinput = pinput
         self.__inputmode = inputmode
@@ -640,7 +631,7 @@ class DAQ(object):
             raise ValueError("Invalid mode")
 
         if mode == ExpMode.ANALOG_IN:
-            self.__model.check_adc_settings(pinput, inputmode, int(gain))
+            self.__model.check_adc_settings(pinput, inputmode, gain)
 
         if not 0 <= nsamples < 256:
             raise ValueError("samples number out of range")
@@ -750,7 +741,7 @@ class DAQ(object):
         else:
             chan = self.__first_available()
 
-        self.__exp.append(DAQStream(mode, chan, *args, **kwargs))
+        self.__exp.append(DAQStream(self.__model, mode, chan, *args, **kwargs))
         return self.__exp[index]
 
     def __create_stream(self, number, period):

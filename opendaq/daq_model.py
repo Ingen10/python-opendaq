@@ -150,8 +150,17 @@ class DAQModel(object):
             raise ValueError("Invalid positive input selection")
         if mode not in self.adc[pinput-1].modes:
             raise ValueError("Invalid mode selection")
+        if(type(gain) == str):
+            correct_gain = False
+            for g in self.adc[pinput-1].pga_gains:
+                if gain == g.name:
+                    gain = g.value
+                    correct_gain = True
+            if not(correct_gain):
+                raise ValueError("Invalid gain selection")
         if gain not in range(len(self.adc[pinput-1].pga_gains)):
             raise ValueError("Invalid gain selection")
+        return gain
 
     def raw_to_volts(self, raw, gain_id, pinput, mode=0):
         """
