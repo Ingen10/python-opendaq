@@ -222,15 +222,15 @@ class DAQ(object):
         """
         self.__model.write_dac_calib(regs, self.__write_calib_slot)
 
-    def get_adcs(self):
+    def get_adc(self, pinput):
         """Get model ADCs
         """
-        return (self.__model.adc)
+        return (self.__model.adc[pinput-1])
 
-    def get_dacs(self):
+    def get_dac(self, output):
         """Get model DACS
         """
-        return(self.__model.dac)
+        return(self.__model.dac[output-1])
 
     def get_input_gains(self, pinput):
         """Get input gains values

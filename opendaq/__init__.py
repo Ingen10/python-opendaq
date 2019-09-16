@@ -22,10 +22,9 @@ from __future__ import absolute_import
 
 try:
     from .daq import DAQ, LedColor, ExpMode, Trigger
-    from .models import Gains
     from .daq_model import CalibReg
 except ImportError:
     pass
 
 __version__ = '0.3.3'
-__all__ = ['DAQ', 'LedColor', 'ExpMode', 'Trigger', 'Gains', 'CalibReg']
+__all__ = ['DAQ', 'LedColor', 'ExpMode', 'Trigger', 'CalibReg']
