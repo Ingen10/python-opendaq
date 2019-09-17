@@ -204,6 +204,14 @@ class DAQ(object):
         """
         return list(self.__model.dac_calib)  # return a copy of the list
 
+    def set_dac_calib(self, regs):
+        """Set the DAC calibration.
+
+        :param regs: A list of CalibReg objects.
+        :raises: ValueError, IndexError
+        """
+        self.__model.write_dac_calib(regs, self.__write_calib_slot)
+
     def get_slots(self):
         return(self.__model.adc_slots, self.__model.dac_slots)
 
@@ -214,13 +222,13 @@ class DAQ(object):
         """
         return list(self.__model.adc_calib)  # return a copy of the list
 
-    def set_dac_calib(self, regs):
-        """Set the DAC calibration.
+    def set_adc_calib(self, regs):
+        """Set the ADC calibration.
 
         :param regs: A list of CalibReg objects.
         :raises: ValueError, IndexError
         """
-        self.__model.write_dac_calib(regs, self.__write_calib_slot)
+        self.__model.write_adc_calib(regs, self.__write_calib_slot)
 
     def get_adcs(self):
         """Get model ADCs
@@ -235,18 +243,18 @@ class DAQ(object):
     def get_input_gains(self, pinput):
         """Get input gains values
         """
-        print(len(self.__model.adc))
         if not (1 <= pinput <= len(self.__model.adc)):
             raise ValueError("Invalid positive input selection")
         print(self.__model.adc[pinput-1].pga_gains.values)
 
-    def set_adc_calib(self, regs):
-        """Set the ADC calibration.
 
-        :param regs: A list of CalibReg objects.
-        :raises: ValueError, IndexError
+    def get_input_modes(self, pinput):
+        """Get input modes (SE, DE, shunt activated, etc.)
         """
-        self.__model.write_adc_calib(regs, self.__write_calib_slot)
+        if not (1 <= pinput <= len(self.__model.adc)):
+            raise ValueError("Invalid positive input selection")
+        print(self.__model.adc[pinput-1].modes)
+
 
     def set_id(self, id):
         """Identify openDAQ device.

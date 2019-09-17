@@ -50,13 +50,13 @@ def yes_no(question):
 class CalibDAQ(DAQ):
     def __init__(self, port):
         DAQ.__init__(self, port)
-        self.outputs = DAQ.get_dacs()
-        self.pinputs = DAQ.get_adcs()
+        self.outputs = self.get_dacs()
+        self.pinputs = self.get_adcs()
 
-        self.serial = DAQ.get_info()[2]
+        self.serial = self.get_info()[2]
 
-        self.adc_slots = DAQ.get_slots()[0]
-        self.dac_slots = DAQ.get_slots()[1]
+        self.adc_slots = self.get_slots()[0]
+        self.dac_slots = self.get_slots()[1]
 
         """
         self.pinputs = model.adc.pinputs
@@ -218,10 +218,17 @@ class CalibDAQ(DAQ):
         time.sleep(.5)
         logging.info("%d Volts -->", volts)
         for j, ch in enumerate(self.inputs):
+            """
+            insert here code to calibrate gain when shunt resistors are activated;
+            perhaps a sub-iteration over the different values of inputmode??
+            for i in range(len(self.get_adcs()))
+                for j in range(self.get_input_modes(i))
+                    self.conf_adc(i+1,j,0)
+            """
             self.conf_adc(j+1, 0, 0)
             time.sleep(.3)
             value = self.read_analog()/volts
-            calib[j] = CalibReg(value, calib[j].offset)
+            calib[j] = CalibReg(value, calib[j].offset) #de donde sale calib[j].offset??
             logging.info("%d --> %0.4f (%d)" % (j + 1 , value, self.read_adc()))
             if report:
                 inputs[j]['dc_gain'] = round(value, 4)
