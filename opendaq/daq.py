@@ -230,15 +230,22 @@ class DAQ(object):
         """
         self.__model.write_adc_calib(regs, self.__write_calib_slot)
 
-    def get_adc(self, pinput):
+    def get_adc_types(self, pinput=None):
         """Get model ADCs
+        :param pinput: Specific input to return 
         """
-        return (self.__model.adc[pinput-1])
+        if pinput is None:
+            return (self.__model.adc)
+        else:
+            return (self.__model.adc[pinput-1])
 
-    def get_dac(self, output):
+    def get_dac_types(self, output=None):
         """Get model DACS
         """
-        return(self.__model.dac[output-1])
+        if pinput is None:
+            return(self.__model.dac)
+        else:
+            return(self.__model.dac[output-1])
 
     def get_input_gains(self, pinput):
         """Get input gains values

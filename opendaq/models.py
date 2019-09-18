@@ -141,7 +141,7 @@ class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for l
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP08ABRR', serial_fmt='TP08x17%04d',
+            model_str='TP08ABRR', serial_fmt='TP08x10%04d',
             adc_slots=12, dac_slots=2, npios=4, nleds=4,
             dac=2*[OUTP_T],
             adc=4*[INP_AS]
@@ -161,7 +161,7 @@ class ModelTP04AR(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP04AR', serial_fmt='TP04x11%04d',
+            model_str='TP04AR', serial_fmt='TP04x10%04d',
             adc_slots=4, dac_slots=2, npios=2, nleds=2,
             dac=2*[OUTP_T],
             adc=2*[INP_A]
@@ -181,7 +181,7 @@ class ModelTP04AB(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP04AB', serial_fmt='TP04x12%04d',
+            model_str='TP04AB', serial_fmt='TP04x10%04d',
             adc_slots=8, dac_slots=2, npios=0, nleds=4,
             dac=2*[OUTP_T],
             adc=4*[INP_A]
@@ -201,7 +201,7 @@ class ModelTP08RRLL(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP08RRLL', serial_fmt='TP08x13%04d',
+            model_str='TP08RRLL', serial_fmt='TP08x10%04d',
             adc_slots=0, dac_slots=4, npios=4, nleds=0,
             dac=4*[OUTP_L],
             adc=[]
@@ -221,7 +221,7 @@ class ModelTP08LLLB(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP08LLLB', serial_fmt='TP08x14%04d',
+            model_str='TP08LLLB', serial_fmt='TP08x10%04d',
             adc_slots=4, dac_slots=6, npios=0, nleds=2,
             dac=6*[OUTP_L],
             adc=2*[INP_A]
@@ -241,7 +241,7 @@ class ModelTP08LLLL(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP08LLLL', serial_fmt='TP08x15%04d',
+            model_str='TP08LLLL', serial_fmt='TP08x10%04d',
             adc_slots=0, dac_slots=8, npios=0, nleds=0,
             dac=8*[OUTP_L],
             adc=[]
@@ -261,7 +261,7 @@ class ModelTP08LLAR(DAQModel):
     def __init__(self, fw_ver, serial):
         DAQModel.__init__(
             self, fw_ver, serial,
-            model_str='TP08LLAR', serial_fmt='TP08x16%04d',
+            model_str='TP08LLAR', serial_fmt='TP08x10%04d',
             adc_slots=6, dac_slots=4, npios=2, nleds=2,
             dac= 4*[OUTP_L],
             adc=2*[INP_AS]
