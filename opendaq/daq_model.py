@@ -24,8 +24,10 @@ import time
 from collections import namedtuple
 from enum import IntEnum
 
-
 MIN_FW_VERSION = 131
+
+CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
+
 
 class PGAGains(IntEnum):
     """A wrapper around IntEnum for defining the gain values of a PGA."""
@@ -40,36 +42,80 @@ class PGAGains(IntEnum):
         a.values = values
         return a
 
-CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
-INP = namedtuple('INP', ['type_str', 'bits', 'vmin', 'vmax', 'pga_gains',
-                         'modes', 'unit'])
-OUTP = namedtuple('OUTP', ['type_str', 'bits', 'vmin', 'vmax', 'unit'])
+class InputBase(object):
+    _input_id = 0
+    type_str='INP_A'
+    bits=16
+    vmin=-24
+    vmax=24
+    _gains=[1, 2, 4, 5, 8, 10, 16, 32]
+    inputmodes=[0]
+    unit='V'
+
+    def __init__(self, calib=None):
+        self.pga_gains = PGAGains.new(self._gains)
+        self.calib = calib
+
+    def volts_to_units(self, volts, inputmode):
+        return volts, self._unit   
+
+    @classmethod
+    def new(cls, input_id, calib=None):
+        """Factory method for instantiating subclasses of InputBase."""
+        for model in cls.__subclasses__():
+            if model._input_id == input_id:
+                return model(calib)
+        raise ValueError("Unknown model ID") 
+
+class OutputBase(object):
+    _output_id = 0
+    type_str='OUTP_T'
+    bits=16
+    vmin=-24
+    vmax=24
+    unit='V'
+
+    @classmethod
+    def new(cls, output_id):
+        """Factory method for instantiating subclasses of OutputBase."""
+        for model in cls.__subclasses__():
+            if model._output_id == output_id:
+                return model()
+        raise ValueError("Unknown model ID") 
+
 
 class DAQModel(object):
     """Base class for defining OpenDAQ models by inheritance."""
     _id = 0
+    model_str=''
+    serial_fmt='%d'
+    adc_slots=0
+    dac_slots=0
+    npios=0
+    nleds=0
 
-    def __init__(self, fw_ver, serial, model_str='', serial_fmt='%d',
-                 adc=None, dac=None, adc_slots=0, dac_slots=0,
-                 npios=0, nleds=0):
+    _input_t=None
+    _output_t=None 
+
+    def __init__(self, fw_ver, serial):
 
         self.fw_ver = fw_ver
         self.serial = serial
-        self.model_str = model_str
-        self.serial_fmt = serial_fmt
-        self.npios = npios
-        self.nleds = nleds
-        self.dac = dac
-        self.adc = adc
-        self.dac_slots = dac_slots
-        self.adc_slots = adc_slots
 
         # Create the calibration slots
-        self.adc_calib = [CalibReg(1., 0.)]*adc_slots
-        self.dac_calib = [CalibReg(1., 0.)]*dac_slots
+        self.adc_calib = [CalibReg(1., 0.)]*self.adc_slots
+        self.dac_calib = [CalibReg(1., 0.)]*self.dac_slots
 
         if self.fw_ver < MIN_FW_VERSION:
             raise ValueError('Invalid firmware version. Please upgrade it!')
+        
+        self.dac = []
+        for i in self._output_t:
+            self.dac.append(OutputBase.new(i))
+
+        self.adc = []
+        for i in self._input_t:
+            self.adc.append(InputBase.new(i))
 
     @property
     def serial_str(self):
@@ -148,7 +194,7 @@ class DAQModel(object):
     def check_adc_settings(self, pinput, mode, gain):
         if not (1 <= pinput <= len(self.adc)):
             raise ValueError("Invalid positive input selection")
-        if mode not in self.adc[pinput-1].modes:
+        if mode not in self.adc[pinput-1].inputmodes:
             raise ValueError("Invalid mode selection")
         if(type(gain) == str):
             correct_gain = False
@@ -162,7 +208,7 @@ class DAQModel(object):
             raise ValueError("Invalid gain selection")
         return gain
 
-    def raw_to_volts(self, raw, gain_id, pinput, mode=0):
+    def raw_to_volts(self, raw, gain_id, pinput, inputmode=0):
         """
         Convert a raw value or a list of values to volts.
         Device calibration values are used for the calculation.
@@ -173,9 +219,10 @@ class DAQModel(object):
         :param ninput: Negative input.
         :returns: Value in volts.
         """
-        # obtain the calibration gains and offsets
 
-        slot1, slot2 = self._get_adc_slots(gain_id, pinput, mode)
+        # obtain the calibration gains and offsets
+        slot1, slot2 = self._get_adc_slots(gain_id, pinput, inputmode)
+        
         print("slots:",slot1, slot2)
         
         gain1, offs1 = (1., 0.) if slot1 < 0 else self.adc_calib[slot1]
@@ -191,6 +238,9 @@ class DAQModel(object):
             return [round((v - offset)/gain, 5) for v in raw]
         except TypeError:
             return round((raw - offset)/gain, 5)
+
+    def volts_to_units(self, pinput, volts, inputmode=0):
+        return self.adc[pinput-1].volts_to_units(volts, inputmode)
 
     def volts_to_raw(self, volts, number):
         """Convert a value in volts to a raw value.

@@ -20,49 +20,95 @@
 
 
 from __future__ import division
-from .daq_model import DAQModel, INP, OUTP, PGAGains
+from .daq_model import DAQModel, InputBase, OutputBase, PGAGains
 
-# Analog input with shunt
-INP_AS = INP(type_str='INP_AS', bits=16, vmin=-24, vmax=24,
-             pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
-             modes=[0, 1], unit='V')
+INPUT_TYPE_A = 1
+INPUT_TYPE_AS = 2
+INPUT_TYPE_M = 3
+INPUT_TYPE_S = 4
+INPUT_TYPE_N = 5
+
+OUTPUT_TYPE_M = 1
+OUTPUT_TYPE_S = 2
+OUTPUT_TYPE_T = 3
+OUTPUT_TYPE_L = 4
+
+
+class InputA(InputBase):
 # Analog input without shut
-INP_A = INP(type_str='INP_A', bits=16, vmin=-24, vmax=24,
-            pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
-            modes=[0], unit='V')
-# Opendaq M analog input
-INP_M = INP(type_str='INP_M', bits=16, vmin=-4.096, vmax=4.096,
-            pga_gains=PGAGains.new([1./3, 1, 2, 10, 100]),
-            modes=[0, 5, 6, 7, 8, 25], unit='V')
-# Opendaq S analog input
-INP_S = INP(type_str='INP_S', bits=16, vmin=-12.0, vmax=12.0,
-            pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 20]),
-            modes=list(range(0, 9)), unit='V')
-# Opendaq N analog input
-INP_N = INP(type_str='INP_N', bits=16, vmin=-12.288, vmax=12.288,
-            pga_gains=PGAGains.new([1, 2, 4, 5, 8, 10, 16, 32]),
-            modes=list(range(0, 9)), unit='V')
+    _input_id = INPUT_TYPE_A
+ 
+class InputAS(InputBase):
+# Analog input with shunt
+    _input_id = INPUT_TYPE_AS
+    type_str='INPUT_TYPE_AS'
+    _inputmodes=[0, 1] 
+
+class InputM(InputBase):
+# Analog input with shunt
+    _input_id = INPUT_TYPE_M
+    type_str='INPUT_TYPE_M'
+    _inputmodes=[0, 5, 6, 7, 8, 25]
+    _gains=[1./3, 1, 2, 10, 100]
+    vmin=-4.096
+    vmax=4.096
+
+class InputS(InputBase):
+# Analog input with shunt
+    _input_id = INPUT_TYPE_S
+    type_str='INPUT_TYPE_S'
+    _inputmodes=list(range(0, 9))
+    _gains=[1, 2, 4, 5, 8, 10, 16, 20]
+    vmin=-12.0
+    vmax=12.0
+
+class InputN(InputBase):
+# Analog input with shunt
+    _input_id = INPUT_TYPE_N
+    type_str='INPUT_TYPE_N'
+    _inputmodes=list(range(0, 9))
+    vmin=-12.288
+    vmax=12.288
+
+
+class OutputM(OutputBase):
 # Opendaq M output
-OUTP_M = OUTP(type_str='OUTP_M', bits=16, vmin=-4.096, vmax=4.096, unit='V')
+    _output_id = OUTPUT_TYPE_M
+    type_str='OUTPUT_TYPE_M'
+    vmin=-4.096
+    vmax=4.096
+
+class OutputS(OutputBase):
 # Opendaq S output
-OUTP_S = OUTP(type_str='OUTP_S', bits=16, vmin=0, vmax=4.096, unit='V')
+    _output_id = OUTPUT_TYPE_S
+    type_str='OUTPUT_TYPE_S'
+    vmin=0
+    vmax=4.096
+
+class OutputT(OutputBase):
 # Tachometer output
-OUTP_T = OUTP(type_str='OUTP_T', bits=16, vmin=-24, vmax=24, unit='V')
+    _output_id = OUTPUT_TYPE_T
+    type_str='OUTPUT_TYPE_T'
+
+class OutputL(OutputBase):
 # Current output
-OUTP_L = OUTP(type_str='OUTP_L', bits=16, vmin=0, vmax=40.96, unit='mA')
+    _output_id = OUTPUT_TYPE_L
+    type_str='OUTPUT_TYPE_L'
+    vmin=0
+    vmax=40.96
+    unit='mA'
 
 
 class ModelM(DAQModel):
     _id = 1
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='[M]', serial_fmt='ODM08%03d7',
-            adc_slots=13, dac_slots=1, npios=6, nleds=1,
-            dac=[OUTP_M],
-            adc=8*[INP_M]
-        )
+    model_str='[M]'
+    serial_fmt='ODM08%03d7'
+    adc_slots=13
+    dac_slots=1
+    npios=6
+    nleds=1
+    _output_t=[OUTPUT_TYPE_M]
+    _input_t=8*[INPUT_TYPE_M]
 
     def _get_adc_slots(self, gain_id, pinput, ninput):
         """There are 13 calibration slots:
@@ -73,15 +119,14 @@ class ModelM(DAQModel):
 
 class ModelS(DAQModel):
     _id = 2
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='[S]', serial_fmt="ODS08%03d7",
-            adc_slots=16, dac_slots=1, npios=6, nleds=1,
-            dac=[OUTP_S],
-            adc=8*[INP_S]
-        )
+    model_str='[S]'
+    serial_fmt='ODS08%03d7'
+    adc_slots=16
+    dac_slots=1
+    npios=6
+    nleds=1
+    _output_t=[OUTPUT_TYPE_S]
+    _input_t=8*[INPUT_TYPE_S]
 
     def check_adc_settings(self, pinput, mode, gain):
         DAQModel.check_adc_settings(self, pinput, mode, gain)
@@ -103,30 +148,28 @@ class ModelS(DAQModel):
 
 class ModelN(DAQModel):
     _id = 3
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='[N]', serial_fmt='ODN08%03d7',
-            adc_slots=16, dac_slots=1, npios=6, nleds=1,
-            dac=[OUTP_M],
-            adc=8*[INP_N]
-        )
+    model_str='[N]'
+    serial_fmt='ODN08%03d7'
+    adc_slots=16
+    dac_slots=1
+    npios=6
+    nleds=1
+    _output_t=[OUTPUT_TYPE_M]
+    _input_t=8*[INPUT_TYPE_N]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         return pinput - 1, len(self.adc) + pinput - 1
 
 class ModelTP08ABRR(DAQModel):
     _id = 10
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP08ABRR', serial_fmt='TP08x10%04d',
-            adc_slots=8, dac_slots=2, npios=4, nleds=4,
-            dac=2*[OUTP_T],
-            adc=4*[INP_A]
-        )
+    model_str='TP08ABRR'
+    serial_fmt='TP08x10%04d'
+    adc_slots=8
+    dac_slots=2
+    npios=4
+    nleds=4
+    _output_t=2*[OUTPUT_TYPE_T]
+    _input_t=4*[INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -137,15 +180,14 @@ class ModelTP08ABRR(DAQModel):
 
 class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for loop current
     _id = 17
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP08ABRR', serial_fmt='TP08x10%04d',
-            adc_slots=12, dac_slots=2, npios=4, nleds=4,
-            dac=2*[OUTP_T],
-            adc=4*[INP_AS]
-        )
+    model_str='TP08ABRR'
+    serial_fmt='TP08x10%04d'
+    adc_slots=12
+    dac_slots=2
+    npios=4
+    nleds=4
+    _output_t=2*[OUTPUT_TYPE_T]
+    _input_t=4*[INPUT_TYPE_AS]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -157,15 +199,14 @@ class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for l
 
 class ModelTP04AR(DAQModel):
     _id = 11
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP04AR', serial_fmt='TP04x10%04d',
-            adc_slots=4, dac_slots=2, npios=2, nleds=2,
-            dac=2*[OUTP_T],
-            adc=2*[INP_A]
-        )
+    model_str='TP04AR'
+    serial_fmt='TP04x10%04d'
+    adc_slots=4
+    dac_slots=2
+    npios=2
+    nleds=2
+    _output_t=2*[OUTPUT_TYPE_T]
+    _input_t=2*[INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -177,15 +218,15 @@ class ModelTP04AR(DAQModel):
 
 class ModelTP04AB(DAQModel):
     _id = 12
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP04AB', serial_fmt='TP04x10%04d',
-            adc_slots=8, dac_slots=2, npios=0, nleds=4,
-            dac=2*[OUTP_T],
-            adc=4*[INP_A]
-        )
+    _id = 10
+    model_str='TP04AB'
+    serial_fmt='TP04x10%04d'
+    adc_slots=8
+    dac_slots=2
+    npios=0
+    nleds=4
+    _output_t=2*[OUTPUT_TYPE_T]
+    _input_t=4*[INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -197,15 +238,14 @@ class ModelTP04AB(DAQModel):
 
 class ModelTP08RRLL(DAQModel):
     _id = 13
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP08RRLL', serial_fmt='TP08x10%04d',
-            adc_slots=0, dac_slots=4, npios=4, nleds=0,
-            dac=4*[OUTP_L],
-            adc=[]
-        )
+    model_str='TP08RRLL'
+    serial_fmt='TP08x10%04d'
+    adc_slots=0
+    dac_slots=4
+    npios=4
+    nleds=0
+    _output_t=4*[OUTPUT_TYPE_L]
+    _input_t=[]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -217,15 +257,14 @@ class ModelTP08RRLL(DAQModel):
 
 class ModelTP08LLLB(DAQModel):
     _id = 14
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP08LLLB', serial_fmt='TP08x10%04d',
-            adc_slots=4, dac_slots=6, npios=0, nleds=2,
-            dac=6*[OUTP_L],
-            adc=2*[INP_A]
-        )
+    model_str='TP08LLLB'
+    serial_fmt='TP08x10%04d'
+    adc_slots=4
+    dac_slots=6
+    npios=0
+    nleds=2
+    _output_t=6*[OUTPUT_TYPE_L]
+    _input_t=2*[INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -237,15 +276,14 @@ class ModelTP08LLLB(DAQModel):
 
 class ModelTP08LLLL(DAQModel):
     _id = 15
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP08LLLL', serial_fmt='TP08x10%04d',
-            adc_slots=0, dac_slots=8, npios=0, nleds=0,
-            dac=8*[OUTP_L],
-            adc=[]
-        )
+    model_str='TP08LLLL'
+    serial_fmt='TP08x10%04d'
+    adc_slots=0
+    dac_slots=8
+    npios=0
+    nleds=0
+    _output_t=8*[OUTPUT_TYPE_L]
+    _input_t=[]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -257,15 +295,14 @@ class ModelTP08LLLL(DAQModel):
 
 class ModelTP08LLAR(DAQModel):
     _id = 16
-
-    def __init__(self, fw_ver, serial):
-        DAQModel.__init__(
-            self, fw_ver, serial,
-            model_str='TP08LLAR', serial_fmt='TP08x10%04d',
-            adc_slots=6, dac_slots=4, npios=2, nleds=2,
-            dac= 4*[OUTP_L],
-            adc=2*[INP_AS]
-        )
+    model_str='TP08LLAR'
+    serial_fmt='TP08x10%04d'
+    adc_slots=6
+    dac_slots=4
+    npios=2
+    nleds=2
+    _output_t=4*[OUTPUT_TYPE_L]+2*[OUTPUT_TYPE_T]
+    _input_t=2*[INPUT_TYPE_AS]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:

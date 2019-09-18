@@ -242,7 +242,7 @@ class DAQ(object):
     def get_dac_types(self, output=None):
         """Get model DACS
         """
-        if pinput is None:
+        if output is None:
             return(self.__model.dac)
         else:
             return(self.__model.dac[output-1])
