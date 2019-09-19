@@ -279,72 +279,61 @@ class CalibDAQ(DAQ):
             json.dump(data, f, indent=2)
             f.close()
 
-    def test_dac(self, meter=None, report=False):
+    def __test_dac_opendaq_auto(self):
+        out = get_dac_types(0)
+        volts = range(int(out.vmin), int(out.vmax) + 1)
+        x, y = self.measure_dac(volts, meter)
+        logging.info("Values measured with the USB multimeter:")
+        logging.info(ExpectedValuesTable(zip(x, y)))
         if report:
-            f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
-            data = {}
-            data['model'] = self.model_str
-            data['serial'] = self.serial
-            data['time'] = int(time.time())
-            items = []
+            items = {'dc_range': dac_range, 'number': 1, 'type': 'voltage_output',
+                     'unit': 'V', 'readings': []}
+            for i, value in enumerate(x):
+                items['readings'].append({'dc_ref': value,
+                                          'dc_read': round(y[i], 4)})
+        return items
 
-        logging.info(title("DAC calibration test"))
-        volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1)
-        dac_range = self.dac_range[1] - self.dac_range[0]
-        if meter:
-            x, y = self.measure_dac(volts, meter)
-            logging.info("Values measured with the USB multimeter:")
-            logging.info(ExpectedValuesTable(zip(x, y)))
-            if report:
-                items = {'dc_range': dac_range, 'number': 1, 'type': 'voltage_output',
-                         'unit': 'V', 'readings': []}
-                for i, value in enumerate(x):
-                    items['readings'].append({'dc_ref': value,
-                                              'dc_read': round(y[i], 4)})
-        else:
-            if self.dac_slots > 2:
-                logging.info("Target: 10.0 mA")
-                rows = [['Input', 'Read (mA)']]
-                ref = 10.0
-                for ch in range(1, self.dac_slots + 1):
-                    while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % ch):
+    def __test_dac_L(self, output, ref):
+        while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % output):
                         pass
-                    r = self.set_analog(ref, ch)
-                    while not(r):
-                        while not yes_no("Powering error. Connect AOUT%d to the power and press 'y' when ready.\n" % ch):
-                            pass
-                        r = self.set_analog(ref, ch)
-                    read_value = float(raw_input("Enter the measured value (mA): "))
-                    rows.append([ch, read_value])
-                    if report:
-                        items.append({'dc_range': dac_range, 'number': ch, 'type': 'current_output', 'unit': 'mA',
-                                 'readings': []})
-                        items[ch-1]['readings'].append({'dc_ref': ref, 'dc_read': round(read_value, 4)})
-                logging.info(AsciiTable(rows).table)
-            else:
-                if report:
-                    volts = range(int(self.dac_range[0]), int(self.dac_range[1]) + 1, 2)
-                    items = {'dc_range': dac_range, 'number': 1, 'type': 'voltage_output',
-                             'unit': 'V', 'readings': []}
-                for i in volts:
-                    self.set_analog(i)
-                    logging.info("Set DAC=%1.1f ->" % i)
-                    time.sleep(.5)
-                    if report:
-                        value = raw_input("Enter the measured value: ")
-                        items['readings'].append({'dc_ref': i, 'dc_read': round(value, 4)})
-                    else:
-                        if yes_no("Is the voltage correct?"):
-                            logging.info("OK")
-                        else:
-                            logging.error("ERROR")
-        if report:
-            data['items'] = items
-            json.dump(data, f, indent=2)
-            f.close()
+        r = self.set_analog(ref, output)
+        while not(r):
+            while not yes_no("Powering error. Connect AOUT%d to the power and press 'y' when ready.\n" % output):
+                pass
+            r = self.set_analog(ref, output)
+        read_value = float(raw_input("Enter the measured value (mA): "))
+        return read_value
+
+    def _test_dac_manual(self, output):
+        out = get_dac_types(output)
+        volts = range(int(out.vmin), int(out.vmax) + 1, 2)
+        for v in volts:
+            self.set_analog(v, output)
+            logging.info("Set DAC=%1.1f ->" % i)
+            time.sleep(.5)
+
+    def test_dac(self, meter=None, report=False):
+        logging.info(title("DAC calibration test"))
+        if meter and self.outputs_ids[0] in [OutputType.OUTPUT_TYPE_M, OutputType.OUTPUT_TYPE_S]:
+            items = self.__test_dac_opendaq_auto()
+        else:
+            for idx, o in enumerate(self.outputs_ids):
+                if o == OutputType.OUTPUT_TYPE_L:
+                    read_value = self.__test_dac_L(idx+1, 10)
+                else:
+                    self.__test_dac_manual(idx+1)
+
+    def __test_adc_DAQS(self, pinput):
+        volts = range(5)
+        read_value = np.zeros(len(volts))
+        self.conf_adc(pinput, 0)
+        for idx, v in enumerate(volts):
+            read_value[idx] = read_analog
+        return read_value
+
 
     def test_adc(self, report=False):
-        if len(self.pinputs) < 2:
+        if len(self.inputs_ids) == 0:
             return
         logging.info(title("ADC calibration test"))
         if report:
