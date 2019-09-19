@@ -260,7 +260,7 @@ class DAQ(object):
         """
         if not (1 <= pinput <= len(self.__model.adc)):
             raise ValueError("Invalid positive input selection")
-        print(self.__model.adc[pinput-1].modes)
+        print(self.__model.adc[pinput-1]._inputmodes)
 
 
     def set_id(self, id):
@@ -357,6 +357,7 @@ class DAQ(object):
         """
         if self.__model.fw_ver < 120:
             raise Warning("Function not implemented in this FW. Try updating")
+        print(mkcmd(CMD.AIN_ALL, 'BB', nsamples, gain))
 
         values = self.send_command(mkcmd(CMD.AIN_ALL, 'BB', nsamples, gain), '8h')
         return [self.__model.raw_to_volts(v, gain, i, 0) for i, v in

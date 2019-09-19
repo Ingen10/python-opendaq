@@ -22,17 +22,19 @@
 from __future__ import division
 from .daq_model import DAQModel, InputBase, OutputBase, PGAGains
 
-INPUT_TYPE_A = 1
-INPUT_TYPE_AS = 2
-INPUT_TYPE_M = 3
-INPUT_TYPE_S = 4
-INPUT_TYPE_N = 5
 
-OUTPUT_TYPE_M = 1
-OUTPUT_TYPE_S = 2
-OUTPUT_TYPE_T = 3
-OUTPUT_TYPE_L = 4
+class InputType(Enum):
+    INPUT_TYPE_A = 1
+    INPUT_TYPE_AS = 2
+    INPUT_TYPE_M = 3
+    INPUT_TYPE_S = 4
+    INPUT_TYPE_N = 5
 
+class OutputType(Enum):
+    OUTPUT_TYPE_M = 1
+    OUTPUT_TYPE_S = 2
+    OUTPUT_TYPE_T = 3
+    OUTPUT_TYPE_L = 4
 
 class InputA(InputBase):
 # Analog input without shut

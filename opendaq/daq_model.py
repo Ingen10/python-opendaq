@@ -223,13 +223,11 @@ class DAQModel(object):
         # obtain the calibration gains and offsets
         slot1, slot2 = self._get_adc_slots(gain_id, pinput, inputmode)
         
-        print("slots:",slot1, slot2)
-        
         gain1, offs1 = (1., 0.) if slot1 < 0 else self.adc_calib[slot1]
         gain2, offs2 = (1., 0.) if slot2 < 0 else self.adc_calib[slot2]
 
         adc_gain = 2.**(self.adc[pinput-1].bits-1)/self.adc[pinput-1].vmax
-        pga_gain = self.adc[pinput-1].pga_gains[gain_id]
+        pga_gain = self.adc[pinput-1].pga_gains.values[gain_id]
 
         gain = adc_gain*pga_gain*gain1*gain2
         offset = offs1 + offs2*pga_gain
