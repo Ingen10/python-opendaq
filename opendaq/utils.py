@@ -51,8 +51,7 @@ def yes_no(question):
 class CalibDAQ(DAQ):
     def __init__(self, port):
         DAQ.__init__(self, port)
-        print(INPUT_TYPE_A)
-        self.outputs_ids = [self.get_dac_types(i)._input_id for i in range(len(self.get_dac_types()))]
+        self.outputs_ids = [self.get_dac_types(i)._output_id for i in range(len(self.get_dac_types()))]
         self.inputs_ids = [self.get_adc_types(i)._input_id for i in range(len(self.get_adc_types()))]
 
         self.serial = self.get_info()[2]
@@ -97,7 +96,7 @@ class CalibDAQ(DAQ):
         read_values = []
         for row in np.loadtxt(dac_file):
             set_values.append(row[0])
-            read_values.append(row[index + 1])
+            read_values.append(row[index])
         return np.polyfit(set_values, read_values, 1)
 
     def __load_calib_json(self):
@@ -125,20 +124,21 @@ class CalibDAQ(DAQ):
             outputs = []
         set_values = []
         new_calib = [CalibReg(1., 0.)] * self.dac_slots
-        self.set_dac_calib([new_calib])
+        self.set_dac_calib(new_calib)
         for idx, i in enumerate(self.outputs_ids):
             if i in [OutputType.OUTPUT_TYPE_M, OutputType.OUTPUT_TYPE_S] and meter:
                 logging.info("Values measured with the USB multimeter:")
                 gain, offset = self.__calibrate_dac_auto_opendaq()
             else:
                 logging.info("Values loaded from %s:" % dac_file)
-                gain, offset = __calibrate_dac_fromfile(idx, dac_file)
+                gain, offset = self.__calibrate_dac_fromfile(idx, dac_file)
+            print(idx)
             new_calib[idx] = CalibReg(gain, offset)
             if report:
                 outputs.append({'gain': round(gain, 4), 'offset': round(offset, 4)})
         self.set_dac_calib(new_calib)
         logging.info("New DAC calibration:")
-        self.print_calib([new_calib])
+        self.print_calib(new_calib)
         if report:
             data['outputs'] = outputs
             json.dump(data, f, indent=2)
@@ -150,64 +150,58 @@ class CalibDAQ(DAQ):
             rows.append(['%.4f' % c.gain, '%.4f' % c.offset])
         logging.info(AsciiTable(rows).table)
 
-    def __calibrate_adc_offset_standard(self, pinput, volts=0):
-        gains = self. get_input_gains(pinput)
-        read_values = np.zeros(len(gains))
-        for g, pga in enumerate(gains):
-            self.conf_adc(pinput, 0, g)
-            read_value[g] = self.read_adc()
-            logging.info("  x%d:\t%d\t%0.4f" % (pga, read_values[g], self.read_analog()))
-        return np.polyfit(gain_values, read_values, 1)
+    def __calibrate_adc_DAQS(self, pinput):
+        volts = [1, 2, 3, 4]
+        ninputs = [2, 1, 4, 3, 6, 5, 8, 7]
+        self.conf_adc(pinput, 0)
+        self.read_adc()
+        analog_read, raw_read = 2*[np.zeros(len(volts))]
+        for idx, v in enumerate(volts):
+            self.set_analog(v)
+            analog_read[idx] = self.read_analog()
+            raw_read[idx] = self.read_adc()
+        dcgain = np.polyfit(volts, analog_read, 1)[0]
+        offset1 = np.polyfit(volts, raw_read, 1)[1]
 
-    def calibrate_adc_offset(self, report=False):
-        if report:
-            f, data = self.__load_calib_json()
-            inputs = []
-        logging.info(title("Calibrating ADC offset"))
-        if self.inputs_ids[0] in [InputType.INPUT_TYPE_M, InputType.INPUT_TYPE_S, InputType.INPUT_TYPE_N]:
-            self.set_analog(0)
-        else:
-            while not yes_no("Set 0V at all inputs.\nPress 'y' when ready.\n"):
-                pass
-        logging.info("0 Volts -->")
-        calib = self.get_adc_calib()
-        if self.inputs_ids[0] == InputType.INPUT_TYPE_M:
-            corr_gain_M = np.zeros(len(self.inputs_ids))
-        for idx, i in enumerate(self.inputs_ids):
-            corr_gain, corr_offset = __calibrate_adc_offset_standard(idx + 1)
-            logging.info("m=%1.2f  b=%.2f" % (corr_gain, corr_offset))
-            calib[n] = CalibReg(calib[n].gain, corr_offset)
-            if self.inputs_types[idx] != InputType.INPUT_TYPE_M:
-                index = len(self.inputs_ids) + idx
-                calib[index] = CalibReg(calib[index].gain, corr_gain)
-                if report:
-                    inputs.append({'offset1': round(corr_offset, 4),
-                                   'offset2': round(corr_gain, 4)})
-            else:
-                corr_gain_M[idx] = corr_gain
-        if self.inputs_ids[0] == InputType.INPUT_TYPE_M:
-            off = np.mean(corr_gain_M)
-            for i, g in  enumerate(self. get_input_gains(0)):
-                idx = len(self.inputs_ids) + i
-                calib[idx] = CalibReg(calib[idx].gain, off)
-                if report:
-                    inputs.append({'offset1': off})
-        self.set_adc_calib(calib)
-        logging.info("ADC calibration updated")
-        if report:
-            data['inputs'] = inputs
-            json.dump(data, f, indent=2)
-            f.close()
+        self.set:analog(0)
+        self.conf_adc(pinput, ninputs[pinput-1])
+        offset2 = self.read_adc()
+        return dcgain, 1, offset1, offset2
 
-    def __calibrate_adc_gain_standard(self, pinput, modes=[0]):
-        gains = np.zeros(len(modes))
-        for i in range(modes):
-            self.conf_adc(pinput, 0, 0)
-            time.sleep(.3)
-            gain[i] = self.read_analog()/volts
-        return self.read_analog()/volts
+    def __calibrate_adc_offset(self, pinput):
+        gains = self.get_input_gains(pinput)
+        raw_read = np.zeros(len(gains))
+        for idx, g in enumerate(gains):
+            self.conf_adc(pinput, 0, idx)
+            raw_read[idx] = self.read_adc()
+        return np.polyfit(gains, raw_read, 1)
 
-    def __calibrate_adc_gain_M(self, gain_idx):
+    def __calibrate_adc_gain(self, pinput, volts, mode=0):
+        self.conf_adc(pinput, mode, 0)
+        return self.read_analog() / volts
+
+    def __calibrate_adc_DAQMN(self, pinput):
+        self.set_analog(0)
+        offset2, offset1 =  self.__calibrate_adc_offset(pinput)
+        volts = 2
+        self.set_analog(volts)
+        dcgain = self.__calibrate_adc_gain(pinput, volts)
+        return dcgain, 1, offset1, offset2
+
+    def __calibrate_adc_A_offset(self, pinput):
+        dcgain2 = 1
+        offset2, offset1 =  self.__calibrate_adc_offset(pinput)
+        return offset1, offset2
+
+    def __calibrate_adc_A_gain(self, pinput):
+        dcgain2 = 1
+        volts = 6
+        dcgain = self.__calibrate_adc_gain(pinput, volts)
+        if self.get_adc_types(pinput)._input_id == InputType.INPUT_TYPE_AS:
+            dcgain2 = self.__calibrate_adc_gain(pinput, volts, 1)
+        return dcgain, dcgain2
+
+    def __calibrate_adc_gain2_M(self, gain_idx):
         volts = 1./self. get_input_gains(gain_idx)
         self.set_analog(volts)
         logging.info("\nx%1.1f -> %f V", pga, volts)
@@ -217,127 +211,43 @@ class CalibDAQ(DAQ):
             a.append(self.read_analog()/volts)
         return np.mean(a)
 
-    def calibrate_adc_gain(self, report=False):
-        if report:
-            f, data = self.__load_calib_json()
-            inputs = data['inputs']
-
-        logging.info(title("Calibrating ADC gain"))
+    def calibrate_adc(self, report=False):
+        if len(self.inputs_ids) == 0:
+            return
+        calib = [CalibReg(1., 0.)]*self.adc_slots
+        self.set_adc_calib(calib)
+        if self.inputs_ids[0] == InputType.INPUT_TYPE_M:
+            offset2_mean = np.zeros(len(self.inputs_ids))
         if self.inputs_ids[0] in [InputType.INPUT_TYPE_M, InputType.INPUT_TYPE_S, InputType.INPUT_TYPE_N]:
-            volts = 2
-            self.set_analog(volts)
+            for idx, i in enumerate(self.inputs_ids):
+                if i == InputType.INPUT_TYPE_S:
+                    offset1, offset2 = self.__calibrate_adc_DAQS(idx + 1)
+                else:
+                    dcgain, dcgain2 = self.__calibrate_adc_DAQMN(idx + 1)
+                    if InputType.INPUT_TYPE_M:
+                       offset2_mean[idx] =  offset2
+                calib[idx]  = CalibReg(dcgain, offset1)
+                calib[(idx + len(self.inputs_ids))] = CalibReg(dcgain2, offset2)
+            if i == InputType.INPUT_TYPE_M:
+                offset2 = np.mean(offset2_mean)
+                for i in range(1, len(self. get_input_gains(0))):
+                    dcgain2 = self.__calibrate_adc_gain_M(i)
+                    calib[(i - 1 + len(self.inputs_ids))] = CalibReg(dcgain2, offset2)
         else:
+            while not yes_no("Set 0V at all inputs.\nPress 'y' when ready."):
+                pass
+            for idx, i in enumerate(self.inputs_ids):
+                offset2, offset1 =  self.__calibrate_adc_offset(idx + 1)
+                calib[idx]  = CalibReg(1.0, offset1)
+                calib[(idx + len(self.inputs_ids))] = CalibReg(1.0, offset2)
             while not yes_no("Set 6V at all inputs.\nPress 'y' when ready."):
                 pass
-            volts = 6
-            for i in len(self.outputs_ids()):
-                self.set_analog(0, i + 1)
-        calib = self.get_adc_calib()
-        time.sleep(.5)
-        logging.info("%d Volts -->", volts)
-        modes = [0]
-        for idx, i in enumerate(self.inputs_ids):
-            """
-            insert here code to calibrate gain when shunt resistors are activated;
-            perhaps a sub-iteration over the different values of inputmode??
-            for i in range(len(self.get_adcs()))
-                for j in range(self.get_input_modes(i))
-                    self.conf_adc(i+1,j,0)
-            """
-            if i == InputType.INPUT_TYPE_AS:
-                modes = self.get_input_modes()
-            gains = __calibrate_adc_gain_standard(idx + 1, modes)
-            calib[idx] = CalibReg(gains[0], calib[j].offset) #de donde sale calib[j].offset??
-            logging.info("%d --> %0.4f (%d)" % (idx + 1 , gains[0], self.read_adc()))
-            if i == InputType.INPUT_TYPE_AS:
-                j = len(self.inputs_ids)*3 + idx
-                logging.info("%d --> %0.4f (%d)" % (j + 1 , gains[1], self.read_adc()))
-            if report:
-                inputs[idx]['dc_gain'] = round(gain[0], 4)
-                if i == InputType.INPUT_TYPE_AS:
-                    inputs[idx]['dc_gain_shunt'] = round(gain[1], 4)
+            for idx, i in enumerate(self.inputs_ids):
+                dcgain1, dcgain2 = self.__calibrate_adc_A_gain(idx + 1)
+                calib[idx]  = CalibReg(dcgain1, calib[idx][1])
+                calib[(idx + len(self.inputs_ids))] = CalibReg(dcgain2, calib[(idx + len(self.inputs_ids))][1])
+        set_adc_calib(calib)
 
-        if self.inputs_types[0] == InputType.INPUT_TYPE_M:
-            self.set_adc_calib(calib)
-            for i in range(1, len(self. get_input_gains(idx))):
-                gain = __calibrate_adc_gain_M(i)
-                j = len(self.pinputs) + i 
-                logging.info("Mean: %f\n", gain)
-                calib[j] = CalibReg(gain, calib[j].offset)
-        logging.info("ADC calibration:")
-        self.print_calib(calib)
-        self.set_adc_calib(calib)
-        if report:
-            data['inputs'] = inputs
-            json.dump(data, f, indent=2)
-            f.close()
-
-    def calibrate_se(self, report=False):
-        if report:
-            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
-            data = json.load(f)
-            inputs = []
-        logging.info("Calibrating ADC (Single-ended mode)")
-
-        calib = self.get_adc_calib()
-        volts = [1, 2, 3, 4]
-
-        for ch in self.pinputs:
-            logging.info("AIN %d:" % ch)
-            self.conf_adc(ch, 0)
-            self.read_adc()
-            a = []
-            b = []
-            for v in volts:
-                self.set_analog(v)
-                val = self.read_analog()
-                raw = self.read_adc()
-                a.append(raw)
-                b.append(val)
-                logging.info("%.1f\tV--> == %d %.4f" % (v, raw, val))
-
-            new_corr, _ = np.polyfit(volts, b, 1)
-            _, new_offset = np.polyfit(volts, a, 1)
-            calib[ch - 1] = CalibReg(new_corr, new_offset)
-            logging.info("m: %f\tb: %f" % (new_corr, new_offset))
-            inputs.append({'dc_gain': round(new_corr, 4), 'offset1': round(new_offset, 4)})
-
-        logging.info("ADC calibration (single-ended mode):")
-        self.print_calib(calib)
-        self.set_adc_calib(calib)
-        if report:
-            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
-            data['inputs'] = inputs
-            json.dump(data, f, indent=2)
-            f.close()
-
-    def calibrate_de(self, report=False):
-        if report:
-            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'r')
-            data = json.load(f)
-            inputs = data['inputs']
-        logging.info("Calibrating ADC (Differential-ended mode)")
-
-        calib = self.get_adc_calib()
-        inputmodes = [2, 1, 4, 3, 6, 5, 8, 7]
-
-        self.set_analog(0)
-
-        for i, ch in enumerate(self.pinputs):
-            self.conf_adc(ch, inputmodes[i])
-            raw = self.read_adc()
-            idx = len(self.pinputs) + i
-            calib[idx] = CalibReg(calib[idx].gain, raw)
-            inputs[ch]['offset2'] = round(raw, 4)
-
-        self.print_calib(calib)
-        self.set_adc_calib(calib)
-
-        if report:
-            f = open('%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
-            data['inputs'] = inputs
-            json.dump(data, f, indent=2)
-            f.close()
 
     def test_pio(self, report=False):
         if report:
@@ -626,6 +536,9 @@ def calib_cmd(args, test=False):
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
         daq.calibrate_dac(dac_file=args.file, meter=meter, report=args.json)
 
+        daq.calibrate_adc(args.json)
+
+        """
         if daq.hw_ver == "[S]":
             pass
             daq.calibrate_se(args.json)
@@ -633,6 +546,7 @@ def calib_cmd(args, test=False):
         elif daq.hw_ver != "EM08C-RRLL":
             daq.calibrate_adc_offset(args.json)
             daq.calibrate_adc_gain(args.json)
+        """   
             
 
 def main():

@@ -21,6 +21,7 @@
 
 from __future__ import division
 from .daq_model import DAQModel, InputBase, OutputBase, PGAGains
+from enum import Enum
 
 
 class InputType(Enum):
@@ -38,17 +39,17 @@ class OutputType(Enum):
 
 class InputA(InputBase):
 # Analog input without shut
-    _input_id = INPUT_TYPE_A
+    _input_id = InputType.INPUT_TYPE_A
  
 class InputAS(InputBase):
 # Analog input with shunt
-    _input_id = INPUT_TYPE_AS
+    _input_id = InputType.INPUT_TYPE_AS
     type_str='INPUT_TYPE_AS'
     _inputmodes=[0, 1] 
 
 class InputM(InputBase):
 # Analog input with shunt
-    _input_id = INPUT_TYPE_M
+    _input_id = InputType.INPUT_TYPE_M
     type_str='INPUT_TYPE_M'
     _inputmodes=[0, 5, 6, 7, 8, 25]
     _gains=[1./3, 1, 2, 10, 100]
@@ -57,7 +58,7 @@ class InputM(InputBase):
 
 class InputS(InputBase):
 # Analog input with shunt
-    _input_id = INPUT_TYPE_S
+    _input_id = InputType.INPUT_TYPE_S
     type_str='INPUT_TYPE_S'
     _inputmodes=list(range(0, 9))
     _gains=[1, 2, 4, 5, 8, 10, 16, 20]
@@ -66,7 +67,7 @@ class InputS(InputBase):
 
 class InputN(InputBase):
 # Analog input with shunt
-    _input_id = INPUT_TYPE_N
+    _input_id = InputType.INPUT_TYPE_N
     type_str='INPUT_TYPE_N'
     _inputmodes=list(range(0, 9))
     vmin=-12.288
@@ -75,26 +76,26 @@ class InputN(InputBase):
 
 class OutputM(OutputBase):
 # Opendaq M output
-    _output_id = OUTPUT_TYPE_M
+    _output_id = OutputType.OUTPUT_TYPE_M
     type_str='OUTPUT_TYPE_M'
     vmin=-4.096
     vmax=4.096
 
 class OutputS(OutputBase):
 # Opendaq S output
-    _output_id = OUTPUT_TYPE_S
+    _output_id = OutputType.OUTPUT_TYPE_S
     type_str='OUTPUT_TYPE_S'
     vmin=0
     vmax=4.096
 
 class OutputT(OutputBase):
 # Tachometer output
-    _output_id = OUTPUT_TYPE_T
+    _output_id = OutputType.OUTPUT_TYPE_T
     type_str='OUTPUT_TYPE_T'
 
 class OutputL(OutputBase):
 # Current output
-    _output_id = OUTPUT_TYPE_L
+    _output_id = OutputType.OUTPUT_TYPE_L
     type_str='OUTPUT_TYPE_L'
     vmin=0
     vmax=40.96
@@ -109,8 +110,8 @@ class ModelM(DAQModel):
     dac_slots=1
     npios=6
     nleds=1
-    _output_t=[OUTPUT_TYPE_M]
-    _input_t=8*[INPUT_TYPE_M]
+    _output_t=[OutputType.OUTPUT_TYPE_M]
+    _input_t=8*[InputType.INPUT_TYPE_M]
 
     def _get_adc_slots(self, gain_id, pinput, ninput):
         """There are 13 calibration slots:
@@ -127,8 +128,8 @@ class ModelS(DAQModel):
     dac_slots=1
     npios=6
     nleds=1
-    _output_t=[OUTPUT_TYPE_S]
-    _input_t=8*[INPUT_TYPE_S]
+    _output_t=[OutputType.OUTPUT_TYPE_S]
+    _input_t=8*[InputType.INPUT_TYPE_S]
 
     def check_adc_settings(self, pinput, mode, gain):
         DAQModel.check_adc_settings(self, pinput, mode, gain)
@@ -156,8 +157,8 @@ class ModelN(DAQModel):
     dac_slots=1
     npios=6
     nleds=1
-    _output_t=[OUTPUT_TYPE_M]
-    _input_t=8*[INPUT_TYPE_N]
+    _output_t=[OutputType.OUTPUT_TYPE_M]
+    _input_t=8*[InputType.INPUT_TYPE_N]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         return pinput - 1, len(self.adc) + pinput - 1
@@ -170,8 +171,8 @@ class ModelTP08ABRR(DAQModel):
     dac_slots=2
     npios=4
     nleds=4
-    _output_t=2*[OUTPUT_TYPE_T]
-    _input_t=4*[INPUT_TYPE_A]
+    _output_t=2*[OutputType.OUTPUT_TYPE_T]
+    _input_t=4*[InputType.INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -188,8 +189,8 @@ class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for l
     dac_slots=2
     npios=4
     nleds=4
-    _output_t=2*[OUTPUT_TYPE_T]
-    _input_t=4*[INPUT_TYPE_AS]
+    _output_t=2*[OutputType.OUTPUT_TYPE_T]
+    _input_t=4*[InputType.INPUT_TYPE_AS]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -207,8 +208,8 @@ class ModelTP04AR(DAQModel):
     dac_slots=2
     npios=2
     nleds=2
-    _output_t=2*[OUTPUT_TYPE_T]
-    _input_t=2*[INPUT_TYPE_A]
+    _output_t=2*[OutputType.OUTPUT_TYPE_T]
+    _input_t=2*[InputType.INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -227,8 +228,8 @@ class ModelTP04AB(DAQModel):
     dac_slots=2
     npios=0
     nleds=4
-    _output_t=2*[OUTPUT_TYPE_T]
-    _input_t=4*[INPUT_TYPE_A]
+    _output_t=2*[OutputType.OUTPUT_TYPE_T]
+    _input_t=4*[InputType.INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -246,7 +247,7 @@ class ModelTP08RRLL(DAQModel):
     dac_slots=4
     npios=4
     nleds=0
-    _output_t=4*[OUTPUT_TYPE_L]
+    _output_t=4*[OutputType.OUTPUT_TYPE_L]
     _input_t=[]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -265,8 +266,8 @@ class ModelTP08LLLB(DAQModel):
     dac_slots=6
     npios=0
     nleds=2
-    _output_t=6*[OUTPUT_TYPE_L]
-    _input_t=2*[INPUT_TYPE_A]
+    _output_t=6*[OutputType.OUTPUT_TYPE_L]
+    _input_t=2*[InputType.INPUT_TYPE_A]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:
@@ -284,7 +285,7 @@ class ModelTP08LLLL(DAQModel):
     dac_slots=8
     npios=0
     nleds=0
-    _output_t=8*[OUTPUT_TYPE_L]
+    _output_t=8*[OutputType.OUTPUT_TYPE_L]
     _input_t=[]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
@@ -303,8 +304,8 @@ class ModelTP08LLAR(DAQModel):
     dac_slots=4
     npios=2
     nleds=2
-    _output_t=4*[OUTPUT_TYPE_L]+2*[OUTPUT_TYPE_T]
-    _input_t=2*[INPUT_TYPE_AS]
+    _output_t=4*[OutputType.OUTPUT_TYPE_L]
+    _input_t=2*[InputType.INPUT_TYPE_AS]
 
     def _get_adc_slots(self, gain_id, pinput, mode):
         """There are two calibration slot for each pinput:

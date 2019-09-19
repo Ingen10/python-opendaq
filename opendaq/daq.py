@@ -252,7 +252,7 @@ class DAQ(object):
         """
         if not (1 <= pinput <= len(self.__model.adc)):
             raise ValueError("Invalid positive input selection")
-        print(self.__model.adc[pinput-1].pga_gains.values)
+        return(self.__model.adc[pinput-1].pga_gains.values)
 
 
     def get_input_modes(self, pinput):
