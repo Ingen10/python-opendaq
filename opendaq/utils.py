@@ -11,7 +11,7 @@ import json
 from terminaltables import AsciiTable
 from . import usbtmc
 from .daq import DAQ
-from .daq_model import CalibReg, DAQModel
+from .daq_model import CalibReg
 from .models import InputType, OutputType
 
 log_formatter = logging.Formatter("%(message)s")
@@ -39,9 +39,8 @@ def title(text):
 
 def yes_no(question):
     print('%s [y/n]' % question)
-
     while True:
-        answer =raw_input().lower()
+        answer = raw_input().lower()
         if answer in ('y', 'n'):
             return answer == 'y'
         else:
@@ -86,7 +85,7 @@ class CalibDAQ(DAQ):
             y.append(meter.measure('volt_dc'))
         return values, y
 
-    def __calibrate_dac_auto_opendaq(self):
+    def __calibrate_dac_auto_opendaq(self, meter):
         volts = range(int(self.outputs[0].vmin), int(self.outputs[0].vmax) + 1)
         x, y = self.measure_dac(volts, meter)
         return np.polyfit(x, y, 1)
@@ -122,13 +121,12 @@ class CalibDAQ(DAQ):
         if report:
             f, data = self.__load_calib_json()
             outputs = []
-        set_values = []
         new_calib = [CalibReg(1., 0.)] * self.dac_slots
         self.set_dac_calib(new_calib)
         for idx, i in enumerate(self.outputs_ids):
             if i in [OutputType.OUTPUT_TYPE_M, OutputType.OUTPUT_TYPE_S] and meter:
                 logging.info("Values measured with the USB multimeter:")
-                gain, offset = self.__calibrate_dac_auto_opendaq()
+                gain, offset = self.__calibrate_dac_auto_opendaq(meter)
             else:
                 logging.info("Values loaded from %s:" % dac_file)
                 gain, offset = self.__calibrate_dac_fromfile(idx, dac_file)
@@ -162,8 +160,7 @@ class CalibDAQ(DAQ):
             raw_read[idx] = self.read_adc()
         dcgain = np.polyfit(volts, analog_read, 1)[0]
         offset1 = np.polyfit(volts, raw_read, 1)[1]
-
-        self.set:analog(0)
+        self.set_analog(0)
         self.conf_adc(pinput, ninputs[pinput-1])
         offset2 = self.read_adc()
         return dcgain, 1, offset1, offset2
@@ -182,15 +179,14 @@ class CalibDAQ(DAQ):
 
     def __calibrate_adc_DAQMN(self, pinput):
         self.set_analog(0)
-        offset2, offset1 =  self.__calibrate_adc_offset(pinput)
+        offset2, offset1 = self.__calibrate_adc_offset(pinput)
         volts = 2
         self.set_analog(volts)
         dcgain = self.__calibrate_adc_gain(pinput, volts)
         return dcgain, 1, offset1, offset2
 
     def __calibrate_adc_A_offset(self, pinput):
-        dcgain2 = 1
-        offset2, offset1 =  self.__calibrate_adc_offset(pinput)
+        offset2, offset1 = self.__calibrate_adc_offset(pinput)
         return offset1, offset2
 
     def __calibrate_adc_A_gain(self, pinput):
@@ -204,7 +200,7 @@ class CalibDAQ(DAQ):
     def __calibrate_adc_gain2_M(self, gain_idx):
         volts = 1./self. get_input_gains(gain_idx)
         self.set_analog(volts)
-        logging.info("\nx%1.1f -> %f V", pga, volts)
+        logging.info("\nx%1.1f -> %f V", self. get_input_gains(gain_idx), volts)
         a = np.zeros(len(self.inputs))
         for idx in len(a):
             self.conf_adc(idx + 1, 0, gain_idx)
@@ -225,8 +221,8 @@ class CalibDAQ(DAQ):
                 else:
                     dcgain, dcgain2 = self.__calibrate_adc_DAQMN(idx + 1)
                     if InputType.INPUT_TYPE_M:
-                       offset2_mean[idx] =  offset2
-                calib[idx]  = CalibReg(dcgain, offset1)
+                        offset2_mean[idx] = offset2
+                calib[idx] = CalibReg(dcgain, offset1)
                 calib[(idx + len(self.inputs_ids))] = CalibReg(dcgain2, offset2)
             if i == InputType.INPUT_TYPE_M:
                 offset2 = np.mean(offset2_mean)
@@ -237,17 +233,16 @@ class CalibDAQ(DAQ):
             while not yes_no("Set 0V at all inputs.\nPress 'y' when ready."):
                 pass
             for idx, i in enumerate(self.inputs_ids):
-                offset2, offset1 =  self.__calibrate_adc_offset(idx + 1)
-                calib[idx]  = CalibReg(1.0, offset1)
+                offset2, offset1 = self.__calibrate_adc_offset(idx + 1)
+                calib[idx] = CalibReg(1.0, offset1)
                 calib[(idx + len(self.inputs_ids))] = CalibReg(1.0, offset2)
             while not yes_no("Set 6V at all inputs.\nPress 'y' when ready."):
                 pass
             for idx, i in enumerate(self.inputs_ids):
                 dcgain1, dcgain2 = self.__calibrate_adc_A_gain(idx + 1)
-                calib[idx]  = CalibReg(dcgain1, calib[idx][1])
+                calib[idx] = CalibReg(dcgain1, calib[idx][1])
                 calib[(idx + len(self.inputs_ids))] = CalibReg(dcgain2, calib[(idx + len(self.inputs_ids))][1])
-        set_adc_calib(calib)
-
+        self.set_adc_calib(calib)
 
     def test_pio(self, report=False):
         if report:
@@ -279,8 +274,8 @@ class CalibDAQ(DAQ):
             json.dump(data, f, indent=2)
             f.close()
 
-    def __test_dac_opendaq_auto(self):
-        out = get_dac_types(0)
+    def __test_dac_opendaq_auto(self, meter, report):
+        out = self.get_dac_types(0)
         volts = range(int(out.vmin), int(out.vmax) + 1)
         x, y = self.measure_dac(volts, meter)
         logging.info("Values measured with the USB multimeter:")
@@ -295,7 +290,7 @@ class CalibDAQ(DAQ):
 
     def __test_dac_L(self, output, ref):
         while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % output):
-                        pass
+            pass
         r = self.set_analog(ref, output)
         while not(r):
             while not yes_no("Powering error. Connect AOUT%d to the power and press 'y' when ready.\n" % output):
@@ -305,17 +300,17 @@ class CalibDAQ(DAQ):
         return read_value
 
     def _test_dac_manual(self, output):
-        out = get_dac_types(output)
+        out = self.get_dac_types(output)
         volts = range(int(out.vmin), int(out.vmax) + 1, 2)
         for v in volts:
             self.set_analog(v, output)
-            logging.info("Set DAC=%1.1f ->" % i)
+            logging.info("Set DAC=%1.1f ->" % v)
             time.sleep(.5)
 
     def test_dac(self, meter=None, report=False):
         logging.info(title("DAC calibration test"))
         if meter and self.outputs_ids[0] in [OutputType.OUTPUT_TYPE_M, OutputType.OUTPUT_TYPE_S]:
-            items = self.__test_dac_opendaq_auto()
+            items = self.__test_dac_opendaq_auto(meter, report)
         else:
             for idx, o in enumerate(self.outputs_ids):
                 if o == OutputType.OUTPUT_TYPE_L:
@@ -325,118 +320,60 @@ class CalibDAQ(DAQ):
 
     def __test_adc_DAQS(self, pinput):
         volts = range(5)
-        read_value = np.zeros(len(volts))
+        read_value, err = 2*[np.zeros(len(volts))]
         self.conf_adc(pinput, 0)
-        for idx, v in enumerate(volts):
-            read_value[idx] = read_analog
-        return read_value
+        vmax_p = float(self.get_adc_types(pinput).vmax)
+        for v in volts:
+            self.set_analog(v)
+            read_value[v] = self.read_analog()
+            err[v] = abs(100 * (read_value[v] - v) / vmax_p)
+        return read_value, err
 
+    def __test_adc_DAQNM(self, pinput, gain):
+        gains = self. get_input_gains(pinput)
+        read_value, err = np.zeros(len(gains))
+        for idx, g in enumerate(gains):
+            if self.get_adc_types(pinput)._input_id == InputType.INPUT_TYPE_N:
+                volts = 2. / g
+            else:
+                volts = 1. / g
+            max_ref = min(12., 12./g)
+            self.set_analog(volts)
+            read_value[idx] = self.read_analog()
+            err[idx] = abs(100 * (read_value[idx] - volts) / max_ref)
+        return read_value, err
+
+    def test_adc_A(self, pinput, gain, volts):
+        gains = self. get_input_gains(pinput)
+        max_ref = min(24.0, 24.0/gains[gain])
+        self.conf_adc(pinput, 0, gain)
+        read_value = self.read_analog()
+        err = abs(100 * (read_value - volts) / max_ref)
+        return read_value, err
 
     def test_adc(self, report=False):
         if len(self.inputs_ids) == 0:
             return
-        logging.info(title("ADC calibration test"))
-        if report:
-            dc_range = self.adc_range[1] - self.adc_range[0]
-            try:
-                f = open('%s_%s_test.json' % (self.serial_str,
-                                              time.strftime('%y%m%d')), 'r')
-                data = json.load(f)
-            except:
-                data = {}
-                data['model'] = self.model_str
-                data['serial'] = self.serial
-                data['time'] = int(time.time())
-                data['items'] = []
-            items = []
-            for j, pinput in enumerate(self.pinputs):
-                items.append({'type': 'stat_input', 'dc_range': dc_range,
-                              'readings': [], 'unit': 'V'})
-        if self.hw_ver == "[S]":
-            for j, pinput in enumerate(self.pinputs):
-                self.conf_adc(pinput, 0)
-                logging.info("Input: %d:" % pinput)
-                rows = [['Target', 'Read', 'Error']]
-                if report:
-                    items[j]['number'] = j + 1
-                for volts in range(5):
-                    self.set_analog(volts)
-                    val = self.read_analog()
-                    err = abs(100 * (val - volts) / 12.)
-                    if report:
-                        items[j]['readings'].append({'gain': self.pga_gains[0], 'dc_ref': round(volts, 4),
-                                                  'dc_read': '%1.3f' % round(val, 4)})
-                    rows.append(['%1.1f V' % volts, '%1.3f V' % val,
-                                 '%0.2f %%' % err])
-                logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ['[N]', '[M]']:
-            for i, gain in enumerate(self.pga_gains):
-                if self.hw_ver == '[N]':
-                    volts = 2. / gain
+        if self.inputs_ids[0] in [InputType.INPUT_TYPE_M, InputType.INPUT_TYPE_S, InputType.INPUT_TYPE_N]:
+            for idx, i in enumerate(self.inputs_ids):
+                if i == InputType.INPUT_TYPE_S:
+                    read_value, err = self.__test_adc_DAQS(idx + 1)
                 else:
-                    volts = 1. / gain
-                max_ref = min(12., 12./gain)
-                self.set_analog(volts)
-                logging.info("Gain: x%0.2f Target: %.2f V" % (gain, volts))
-
-                rows = [['Input', 'Read', 'Error']]
-                for j, pinput in enumerate(self.pinputs):
-                    self.conf_adc(pinput, 0, i)
-                    val = self.read_analog()
-                    err = abs(100 * (val - volts) / max_ref)
-                    if report:
-                        items[j]['number'] = j + 1
-                        items[j]['readings'].append({'gain': gain, 'dc_ref': round(volts, 4),
-                                                     'dc_read': '%1.3f' % round(val, 4)})
-                    rows.append([pinput, '%1.3f V' % val, '%0.2f %%' % err])
-                logging.info(AsciiTable(rows).table)
-        elif self.hw_ver in ["TP08ABRR", "TP04AR", "TP04AB", "TP08LLLB", "TP08RRLL"]:
-            volts = 0
-            if report:
-                max_err = np.zeros(len(self.pinputs))
-            for i, gain in enumerate(self.pga_gains):
-                if gain < 4 and volts != 5:
-                    while not yes_no("Set 5 V at all inputs.\nPress 'y' when ready."):
-                        pass
-                    volts = 5
-                elif 4 < gain < 16 and volts != 1:
-                    while not yes_no("Set 1 V at all inputs.\nPress 'y' when ready."):
-                        pass
-                    volts = 1
-                elif gain == 32 and volts != 0.5:
-                    while not yes_no("Set 0.5 V at all inputs.\nPress 'y' when ready."):
-                        pass
-                    volts = .5
-                max_ref = min(24., 24./gain)
-                logging.info("Gain: x%d Target: %.2f V" % (gain, volts))
-                rows = [['Input', 'Read', 'Error']]
-                for j, pinput in enumerate(self.pinputs):
-                    self.conf_adc(pinput, 0, i)
-                    val = self.read_analog()
-                    err = abs(100 * (val - volts) / max_ref)
-                    if report:
-                        if err > max_err[j]:
-                            max_err[j] = err
-                        items[j]['number'] = j + 1
-                        if gain == 32:
-                            items[j]['readings'].append({'gain': gain, 'dc_ref': 0.5,
-                                                         'dc_read': round(val, 4)})
-                        elif gain >= 5:
-                            items[j]['readings'].append({'gain': gain, 'dc_ref': 1.0,
-                                                         'dc_read': round(val, 4)})
-                        else:
-                            items[j]['readings'].append({'gain': gain, 'dc_ref': 5.0,
-                                                         'dc_read': round(val, 4)})
-                    rows.append([pinput, '%1.3f V' % val, '%0.2f %%' % err])
-                logging.info(AsciiTable(rows).table)
+                    read_value, err = self.__test_adc_DAQNM(idx + 1)
         else:
-            print("Hello!: ", self.hw_ver)
-
-        if report:
-            data['items'].extend(items)
-            f = open('%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d')), 'w')
-            json.dump(data, f, indent=2)
-            f.close()
+            gains = self. get_input_gains(0)
+            volts = 0
+            for idx, g in enumerate(gains):
+                if g < 4 and volts != 5:
+                    volts = 5
+                elif 4 < g < 16 and volts != 1:
+                    volts = 1
+                elif g == 32 and volts != 0.5:
+                    volts = .5
+                while not yes_no("Set %f V at all inputs.\nPress 'y' when ready." % volts):
+                    pass
+                for j, p in enumerate(self.inputs_ids):
+                    read_value, err = self.test_adc_A(j + 1, idx, volts)
 
 
 def info_cmd(args):
@@ -462,13 +399,13 @@ def set_voltage_cmd(args):
     else:
         channels.append(args.channel)
     for ch in channels:
-        daq.set_analog(args.volts, ch)    
+        daq.set_analog(args.volts, ch)
     if args.interactive:
         print("Press Ctrl-C to exit")
         try:
             while True:
                 if daq.model_str == 'EM08C-RRLL':
-                    print("Enter new current (mA): ", end='')                    
+                    print("Enter new current (mA): ", end='')
                 else:
                     print("Enter new voltage (V): ", end='')
                 value = float(raw_input())
@@ -535,8 +472,8 @@ def calib_cmd(args, test=False):
         elif daq.hw_ver != "EM08C-RRLL":
             daq.calibrate_adc_offset(args.json)
             daq.calibrate_adc_gain(args.json)
-        """   
-            
+        """
+
 
 def main():
     # setup the logger
