@@ -98,8 +98,8 @@ class CalibDAQ(DAQ):
             read_values.append(row[index])
         return np.polyfit(set_values, read_values, 1)
 
-    def __load_calib_json(self):
-        filename = '%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d'))
+    def __load_calib_json(self, file_type='calib'):
+        filename = '%s_%s_%s.json' % (self.serial_str, time.strftime('%y%m%d'), file_type)
         file_created = True
         try:
             f = open(filename, 'r')
@@ -113,8 +113,9 @@ class CalibDAQ(DAQ):
             data['model'] = self.model_str
             data['serial'] = self.serial
             data['time'] = int(time.time())
-            data['humidity'] = int(raw_input('Enter humidity (%): '))
-            data['temperature'] = float(raw_input('Enter temperature: '))
+            if file_type == 'calib':
+                data['humidity'] = int(raw_input('Enter humidity (%): '))
+                data['temperature'] = float(raw_input('Enter temperature: '))
         return f, data
 
     def calibrate_dac(self, dac_file=None, meter=None, report=False):
@@ -156,7 +157,7 @@ class CalibDAQ(DAQ):
         analog_read, raw_read = 2*[np.zeros(len(volts))]
         for idx, v in enumerate(volts):
             self.set_analog(v)
-            analog_read[idx] = self.read_analog()
+            analog_read[idx] = self.read_analog()[0]
             raw_read[idx] = self.read_adc()
         dcgain = np.polyfit(volts, analog_read, 1)[0]
         offset1 = np.polyfit(volts, raw_read, 1)[1]
@@ -175,7 +176,7 @@ class CalibDAQ(DAQ):
 
     def __calibrate_adc_gain(self, pinput, volts, mode=0):
         self.conf_adc(pinput, mode, 0)
-        return self.read_analog() / volts
+        return self.read_analog()[0] / volts
 
     def __calibrate_adc_DAQMN(self, pinput):
         self.set_analog(0)
@@ -204,12 +205,15 @@ class CalibDAQ(DAQ):
         a = np.zeros(len(self.inputs))
         for idx in len(a):
             self.conf_adc(idx + 1, 0, gain_idx)
-            a.append(self.read_analog()/volts)
+            a.append(self.read_analog()[0]/volts)
         return np.mean(a)
 
     def calibrate_adc(self, report=False):
         if len(self.inputs_ids) == 0:
             return
+        if report:
+            f, data = self.__load_calib_json()
+            inputs = []
         calib = [CalibReg(1., 0.)]*self.adc_slots
         self.set_adc_calib(calib)
         if self.inputs_ids[0] == InputType.INPUT_TYPE_M:
@@ -243,6 +247,7 @@ class CalibDAQ(DAQ):
                 calib[idx] = CalibReg(dcgain1, calib[idx][1])
                 calib[(idx + len(self.inputs_ids))] = CalibReg(dcgain2, calib[(idx + len(self.inputs_ids))][1])
         self.set_adc_calib(calib)
+
 
     def test_pio(self, report=False):
         if report:
@@ -325,7 +330,7 @@ class CalibDAQ(DAQ):
         vmax_p = float(self.get_adc_types(pinput).vmax)
         for v in volts:
             self.set_analog(v)
-            read_value[v] = self.read_analog()
+            read_value[v] = self.read_analog()[0]
             err[v] = abs(100 * (read_value[v] - v) / vmax_p)
         return read_value, err
 
@@ -339,7 +344,7 @@ class CalibDAQ(DAQ):
                 volts = 1. / g
             max_ref = min(12., 12./g)
             self.set_analog(volts)
-            read_value[idx] = self.read_analog()
+            read_value[idx] = self.read_analog()[0]
             err[idx] = abs(100 * (read_value[idx] - volts) / max_ref)
         return read_value, err
 
@@ -347,7 +352,7 @@ class CalibDAQ(DAQ):
         gains = self. get_input_gains(pinput)
         max_ref = min(24.0, 24.0/gains[gain])
         self.conf_adc(pinput, 0, gain)
-        read_value = self.read_analog()
+        read_value = self.read_analog()[0]
         err = abs(100 * (read_value - volts) / max_ref)
         return read_value, err
 

@@ -38,68 +38,93 @@ class OutputType(Enum):
     OUTPUT_TYPE_L = 4
 
 class InputA(InputBase):
-# Analog input without shut
+    # Analog input without shut
     _input_id = InputType.INPUT_TYPE_A
+    def __init__(self, calib=None):
+        InputBase.__init__(self)
  
 class InputAS(InputBase):
-# Analog input with shunt
+    # Analog input with shunt
     _input_id = InputType.INPUT_TYPE_AS
-    type_str='INPUT_TYPE_AS'
-    _inputmodes=[0, 1] 
+    def __init__(self, calib=None):
+        InputBase.__init__(self, 
+            type_str = 'INPUT_TYPE_AS',
+            inputmodes = [0, 1]
+        )
 
 class InputM(InputBase):
-# Analog input with shunt
+    # Analog input with shunt
     _input_id = InputType.INPUT_TYPE_M
-    type_str='INPUT_TYPE_M'
-    _inputmodes=[0, 5, 6, 7, 8, 25]
-    _gains=[1./3, 1, 2, 10, 100]
-    vmin=-4.096
-    vmax=4.096
+    def __init__(self, calib=None):
+        InputBase.__init__(self, 
+            type_str = 'INPUT_TYPE_M',
+            inputmodes = [0, 5, 6, 7, 8, 25],
+            _gains = [1./3, 1, 2, 10, 100],
+            vmin = -4.096,
+            vmax = 4.096
+        )
 
 class InputS(InputBase):
-# Analog input with shunt
+    # Analog input with shunt
     _input_id = InputType.INPUT_TYPE_S
-    type_str='INPUT_TYPE_S'
-    _inputmodes=list(range(0, 9))
-    _gains=[1, 2, 4, 5, 8, 10, 16, 20]
-    vmin=-12.0
-    vmax=12.0
+    def __init__(self, calib=None):
+        InputBase.__init__(self,
+            type_str = 'INPUT_TYPE_S',
+            inputmodes = list(range(0, 9)),
+            _gains = [1, 2, 4, 5, 8, 10, 16, 20],
+            vmin = -12.0,
+            vmax = 12.0
+        )
 
 class InputN(InputBase):
-# Analog input with shunt
+    # Analog input with shunt
     _input_id = InputType.INPUT_TYPE_N
-    type_str='INPUT_TYPE_N'
-    _inputmodes=list(range(0, 9))
-    vmin=-12.288
-    vmax=12.288
-
+    def __init__(self, calib=None):
+        InputBase.__init__(self, 
+            type_str = 'INPUT_TYPE_N',
+            inputmodes = list(range(0, 9)),
+            vmin = -12.288,
+            vmax = 12.288
+        )
 
 class OutputM(OutputBase):
-# Opendaq M output
-    _output_id = OutputType.OUTPUT_TYPE_M
-    type_str='OUTPUT_TYPE_M'
-    vmin=-4.096
-    vmax=4.096
+    # Opendaq M output
+    _output_id = OutputType.OUTPUT_TYPE_M,
+    def __init__(self):
+        OutputBase.__init__(self, 
+            type_str = 'OUTPUT_TYPE_M',
+            vmin = -4.096,
+            vmax = 4.096
+        )
 
 class OutputS(OutputBase):
-# Opendaq S output
+    # Opendaq S output
     _output_id = OutputType.OUTPUT_TYPE_S
-    type_str='OUTPUT_TYPE_S'
-    vmin=0
-    vmax=4.096
+    def __init__(self):
+        OutputBase.__init__(self, 
+            type_str = 'OUTPUT_TYPE_S',
+            vmin = 0,
+            vmax = 4.096
+        )
 
 class OutputT(OutputBase):
-# Tachometer output
+    # Tachometer output
     _output_id = OutputType.OUTPUT_TYPE_T
-    type_str='OUTPUT_TYPE_T'
+    def __init__(self):
+        OutputBase.__init__(self, 
+            type_str = 'OUTPUT_TYPE_T'
+        )
 
 class OutputL(OutputBase):
-# Current output
+    # Current output
     _output_id = OutputType.OUTPUT_TYPE_L
-    type_str='OUTPUT_TYPE_L'
-    vmin=0
-    vmax=40.96
-    unit='mA'
+    def __init__(self):
+        OutputBase.__init__(self,
+            type_str = 'OUTPUT_TYPE_L',
+            vmin = 0,
+            vmax = 40.96,
+            unit = 'mA'
+        )
 
 
 class ModelM(DAQModel):

@@ -44,20 +44,28 @@ class PGAGains(IntEnum):
 
 class InputBase(object):
     _input_id = 0
-    type_str='INP_A'
-    bits=16
-    vmin=-24
-    vmax=24
-    _gains=[1, 2, 4, 5, 8, 10, 16, 32]
-    inputmodes=[0]
-    unit='V'
+    def __init__(self, calib=None, type_str='INP_A', bits=16, vmin=-24, vmax=24, 
+                 _gains=[1, 2, 4, 5, 8, 10, 16, 32], inputmodes=[0], unit='V'): 
+        self.type_str = type_str
+        self.bits = bits
+        self.vmin = vmin
+        self.vmax = vmax
+        self._gains = _gains
+        self.inputmodes = inputmodes
+        self.unit = unit
 
-    def __init__(self, calib=None):
         self.pga_gains = PGAGains.new(self._gains)
         self.calib = calib
 
-    def volts_to_units(self, volts, inputmode):
-        return volts, self._unit   
+    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2):
+        adc_gain = 2.**(self.bits-1)/self.vmax
+        gain = adc_gain*self._gains[gain_id]*calibreg1.gain*calibreg2.gain
+        offset = calibreg1.offset + calibreg2.offset*self._gains[gain_id]
+        try:
+            result = [round((v - offset)/gain, 5) for v in raw]
+        except TypeError:
+            result = round((raw - offset)/gain, 5)
+        return (result, self.unit)   
 
     @classmethod
     def new(cls, input_id, calib=None):
@@ -69,11 +77,12 @@ class InputBase(object):
 
 class OutputBase(object):
     _output_id = 0
-    type_str='OUTP_T'
-    bits=16
-    vmin=-24
-    vmax=24
-    unit='V'
+    def __init__(self, type_str='OUTP_T', bits=16, vmin=-24, vmax=24, unit='V'):
+        self.type_str = type_str
+        self.bits = bits
+        self.vmin = vmin
+        self.vmax = vmax
+        self.unit = unit
 
     @classmethod
     def new(cls, output_id):
@@ -108,11 +117,9 @@ class DAQModel(object):
 
         if self.fw_ver < MIN_FW_VERSION:
             raise ValueError('Invalid firmware version. Please upgrade it!')
-        
         self.dac = []
         for i in self._output_t:
             self.dac.append(OutputBase.new(i))
-
         self.adc = []
         for i in self._input_t:
             self.adc.append(InputBase.new(i))
@@ -222,23 +229,10 @@ class DAQModel(object):
 
         # obtain the calibration gains and offsets
         slot1, slot2 = self._get_adc_slots(gain_id, pinput, inputmode)
-        
-        gain1, offs1 = (1., 0.) if slot1 < 0 else self.adc_calib[slot1]
-        gain2, offs2 = (1., 0.) if slot2 < 0 else self.adc_calib[slot2]
+        calibreg1 = CalibReg(1., 0.) if slot1 < 0 else self.adc_calib[slot1]
+        calibreg2 = CalibReg(1., 0.) if slot2 < 0 else self.adc_calib[slot2]
 
-        adc_gain = 2.**(self.adc[pinput-1].bits-1)/self.adc[pinput-1].vmax
-        pga_gain = self.adc[pinput-1].pga_gains.values[gain_id]
-
-        gain = adc_gain*pga_gain*gain1*gain2
-        offset = offs1 + offs2*pga_gain
-
-        try:
-            return [round((v - offset)/gain, 5) for v in raw]
-        except TypeError:
-            return round((raw - offset)/gain, 5)
-
-    def volts_to_units(self, pinput, volts, inputmode=0):
-        return self.adc[pinput-1].volts_to_units(volts, inputmode)
+        return self.adc[pinput-1].raw_to_units(raw, gain_id, calibreg1, calibreg2)
 
     def volts_to_raw(self, volts, number):
         """Convert a value in volts to a raw value.

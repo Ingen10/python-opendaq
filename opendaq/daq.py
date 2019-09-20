@@ -345,6 +345,7 @@ class DAQ(object):
         :returns: Voltage value.
         """
         value = self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
+        print(self.__inputmode)
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
 
@@ -988,6 +989,6 @@ class DAQ(object):
                     break
             else:
                 exp = self.__exp[used.index(ch)]
-                exp.add_points(self.__model.raw_to_volts(data, *exp.get_params()))
+                exp.add_points(self.__model.raw_to_volts(data, *exp.get_params())[0])
 
         self.__measuring = False
