@@ -37,6 +37,12 @@ class CalibDAQ(DAQ):
         time.sleep(0.05)
         return DAQ.read_analog(self)[0]
 
+    def reset_calib(self):
+        adc_calib = self.get_adc_calib()
+        dac_calib = self.get_dac_calib()
+        self.set_adc_calib([CalibReg(1., 0.)]*len(adc_calib))
+        self.set_dac_calib([CalibReg(1., 0.)]*len(dac_calib))
+
     def __calib_adc_ANtype(self, pinputs, calib, isAtype=True):
         volts = 0.0
         if (isAtype):
@@ -161,45 +167,46 @@ class CalibDAQ(DAQ):
             if inputs:
                 self.__calib_adc(t, inputs)
 
-    def __calib_dac_Mtype(self, outputs):
-        print("SALIDAS TIPO M")
-        print(outputs)
-
-    def __calib_dac_Stype(self, outputs):
-        print("SALIDAS TIPO S")
-        print(outputs)
-
-    def __calib_dac_Ttype(self, outputs):
-        print("SALIDAS TIPO T")
-        print(outputs)
-
-    def __calib_dac_Ltype(self, outputs):
+    def __calib_dac_Ltype(self, outputs, calib):
         print("SALIDAS TIPO L")
         print(outputs)
+        return calib
 
-    def __calib_dac(self, out_type, outputs):
-        if out_type == OutputType.OUTPUT_TYPE_M:
-            self.__calib_dac_Mtype(outputs)
-        elif out_type == OutputType.OUTPUT_TYPE_S:
-            self.__calib_dac_Stype(outputs)
-        elif out_type == OutputType.OUTPUT_TYPE_T:
-            self.__calib_dac_Ttype(outputs)
+    def __calib_dac_from_file(self, outputs, calib, dac_file):
+        for idx, out in enumerate(outputs):
+            set_values = []
+            read_values = []
+            for row in np.loadtxt(dac_file):
+                set_values.append(row[0])
+                read_values.append(row[idx + 1])
+            gain, offset =  np.polyfit(set_values, read_values, 1)
+            calib[idx] = CalibReg(gain, offset)
+        return calib
+
+    def __calib_dac(self, out_type, outputs, dac_file, meter):
+        calib = self.get_dac_calib()
+        if out_type in [OutputType.OUTPUT_TYPE_M, OutputType.OUTPUT_TYPE_S,
+                        OutputType.OUTPUT_TYPE_L]:
+            calib_out = self.__calib_dac_from_file(outputs, calib, dac_file)
         elif out_type == OutputType.OUTPUT_TYPE_L:
-            self.__calib_dac_Ltype(outputs)
+            calib_out = self.__calib_dac_Ltype(outputs, calib)
+        print(calib_out)
+        self.set_dac_calib(calib_out)
 
-    def calib_dac(self):
+    def calib_dac(self, file, meter=False):
         for t in OutputType:
             outputs = []
             for idx, out in enumerate(self.outputs_ids):
                 if(t == out):
                     outputs.append(idx + 1)
             if outputs:
-                self.__calib_dac(t, outputs)
+                self.__calib_dac(t, outputs, file, meter)
 
 
 def calib_cmd(args):
     daq = CalibDAQ(args.port)
-    daq.calib_dac()
+    daq.reset_calib()
+    daq.calib_dac(args.file, args.meter)
     daq.calib_adc()
 
 
@@ -207,8 +214,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', default='/dev/ttyUSB0',
                         help='Serial port (default: /dev/ttyUSB0)')
+    parser.add_argument('-m', '--meter', default='/dev/usbtmc0',
+                        help='USBTMC port of a digital multimeter for '
+                        'performing fully automated tests. Currently, '
+                        'only the Rigol DM3058 has been tested.'
+                        '(default: /dev/usbtmc0).')
     subparsers = parser.add_subparsers(title='Subcommands')
     cparser = subparsers.add_parser('calib', help='Calibrate the devices')
+    cparser.add_argument('-f', '--file', default='calib.txt',
+                         help='Select file source to load DAC parameters'
+                         '(default: calib.txt)')
     cparser.set_defaults(func=calib_cmd)
 
     args = parser.parse_args()
