@@ -51,6 +51,24 @@ class InputAS(InputBase):
             type_str = 'INPUT_TYPE_AS',
             inputmodes = [0, 1]
         )
+    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2, inputmode):
+        adc_gain = 2.**(self.bits-1)/self.vmax
+        if inputmode:
+            gain = adc_gain*self._gains[gain_id]*calibreg1.gain
+            offset = calibreg1.offset*self._gains[gain_id]
+            fact = 10.0
+        else:
+            gain = adc_gain*self._gains[gain_id]*calibreg1.gain*calibreg2.gain
+            offset = calibreg1.offset + calibreg2.offset*self._gains[gain_id]
+            fact = 1.0
+        print(gain)
+        print(offset)
+        print(fact)
+        try:
+            result = [round((v - offset)*fact/gain, 5) for v in raw]
+        except TypeError:
+            result = round((raw - offset)*fact/gain, 5)
+        return (result, self.unit)
 
 class InputM(InputBase):
     # Analog input with shunt
@@ -87,16 +105,6 @@ class InputN(InputBase):
             vmax = 12.288
         )
 
-class OutputM(OutputBase):
-    # Opendaq M output
-    _output_id = OutputType.OUTPUT_TYPE_M,
-    def __init__(self):
-        OutputBase.__init__(self, 
-            type_str = 'OUTPUT_TYPE_M',
-            vmin = -4.096,
-            vmax = 4.096
-        )
-
 class OutputS(OutputBase):
     # Opendaq S output
     _output_id = OutputType.OUTPUT_TYPE_S
@@ -105,14 +113,6 @@ class OutputS(OutputBase):
             type_str = 'OUTPUT_TYPE_S',
             vmin = 0,
             vmax = 4.096
-        )
-
-class OutputT(OutputBase):
-    # Tachometer output
-    _output_id = OutputType.OUTPUT_TYPE_T
-    def __init__(self):
-        OutputBase.__init__(self, 
-            type_str = 'OUTPUT_TYPE_T'
         )
 
 class OutputL(OutputBase):
@@ -126,6 +126,23 @@ class OutputL(OutputBase):
             unit = 'mA'
         )
 
+class OutputM(OutputBase):
+    # Tachometer output
+    _output_id = OutputType.OUTPUT_TYPE_M
+    def __init__(self):
+        OutputBase.__init__(self, 
+            type_str = 'OUTPUT_TYPE_M',
+            vmin = -4.096,
+            vmax = 4.096
+        )
+
+class OutputT(OutputBase):
+    # Tachometer output
+    _output_id = OutputType.OUTPUT_TYPE_T
+    def __init__(self):
+        OutputBase.__init__(self, 
+            type_str = 'OUTPUT_TYPE_T',
+        )
 
 class ModelM(DAQModel):
     _id = 1
@@ -222,7 +239,8 @@ class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for l
         - One slot to correct the analog error (depending on pinput and mode)
         - One slot to correct the gain amplification
          """
-        return (pinput-1) + 2*mode, 2*len(self.adc) + (pinput-1)
+        idx = 2 * len(self.adc) * mode + pinput - 1
+        return idx, len(self.adc) + pinput - 1
 
 
 class ModelTP04AR(DAQModel):
@@ -246,7 +264,6 @@ class ModelTP04AR(DAQModel):
 
 class ModelTP04AB(DAQModel):
     _id = 12
-    _id = 10
     model_str='TP04AB'
     serial_fmt='TP04x10%04d'
     adc_slots=8
@@ -337,4 +354,5 @@ class ModelTP08LLAR(DAQModel):
         - One slot to correct the analog error (depending on pinput and mode)
         - One slot to correct the gain amplification
          """
-        return (pinput-1), len(self.adc) + (pinput-1)
+        idx = 2 * len(self.adc) * mode + pinput - 1
+        return idx, len(self.adc) + pinput - 1

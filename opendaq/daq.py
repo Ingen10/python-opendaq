@@ -194,6 +194,8 @@ class DAQ(object):
             - Offset raw correction
         :raises: ValueError
         """
+        print("GAIN: ", int(gain))
+        print("OFF: ", int(offset))
         return self.send_command(mkcmd(CMD.SET_CALIB, 'Bhh', slot_id,
                                        int(gain), int(offset)), 'Bhh')
 
@@ -345,7 +347,6 @@ class DAQ(object):
         :returns: Voltage value.
         """
         value = self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
-        print(self.__inputmode)
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
 

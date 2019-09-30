@@ -57,7 +57,7 @@ class InputBase(object):
         self.pga_gains = PGAGains.new(self._gains)
         self.calib = calib
 
-    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2):
+    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2, inputmode=0):
         adc_gain = 2.**(self.bits-1)/self.vmax
         gain = adc_gain*self._gains[gain_id]*calibreg1.gain*calibreg2.gain
         offset = calibreg1.offset + calibreg2.offset*self._gains[gain_id]
@@ -73,7 +73,7 @@ class InputBase(object):
         for model in cls.__subclasses__():
             if model._input_id == input_id:
                 return model(calib)
-        raise ValueError("Unknown model ID") 
+        raise ValueError("Unknown input ID") 
 
 class OutputBase(object):
     _output_id = 0
@@ -90,7 +90,7 @@ class OutputBase(object):
         for model in cls.__subclasses__():
             if model._output_id == output_id:
                 return model()
-        raise ValueError("Unknown model ID") 
+        raise ValueError("Unknown output ID") 
 
 
 class DAQModel(object):
@@ -232,7 +232,7 @@ class DAQModel(object):
         calibreg1 = CalibReg(1., 0.) if slot1 < 0 else self.adc_calib[slot1]
         calibreg2 = CalibReg(1., 0.) if slot2 < 0 else self.adc_calib[slot2]
 
-        return self.adc[pinput-1].raw_to_units(raw, gain_id, calibreg1, calibreg2)
+        return self.adc[pinput-1].raw_to_units(raw, gain_id, calibreg1, calibreg2, inputmode)
 
     def volts_to_raw(self, volts, number):
         """Convert a value in volts to a raw value.

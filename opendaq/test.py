@@ -29,7 +29,7 @@ class Test(Calib):
     def __init__(self, port):
         Calib.__init__(self, port)
 
-    def create_test_json(self):
+    def create_test_json(self, results_inputs, results_outputs):
         filename = '%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d'))
         f = open(filename, 'w')
         data = {
@@ -38,28 +38,33 @@ class Test(Calib):
             "time": int(time.time()),
             "items": []
         }
-        """
-        for idx, o in enumerate(self.outputs_ids):
-            out = self.get_dac_types(o)
+        for idx, o in enumerate(results_outputs):
+            out = self.get_dac_types(int(o['number']))
             data['items'].append({'dc_range': (out.vmax - out.vmin),
-                                  'nuber': o,
+                                  'number': o['number'],
                                   'type': out.type_str,
-                                  'unit':out.unit,
-                                  'readings' = [
-                                  { 'dc_ref':,
-                                    'dc_read': ,
-                                  }]})
-        for idx, o in enumerate(self.outputs_ids):
-            data['outputs'].append({'gain': calib_dac_params[idx].gain,
-                                    'offset': calib_dac_params[idx].offset})
-        """
+                                  'unit': out.unit,
+                                  'readings': [
+                                                {'dc_ref': o['ref'],
+                                                 'dc_read': o['read']
+                                                }]})
+        for idx, i in enumerate(results_inputs):
+            inp = self.get_adc_types(int(i['number']))
+            data['items'].append({'dc_range': (inp.vmax - inp.vmin),
+                                  'number': i['number'],
+                                  'type': inp.type_str,
+                                  'unit': inp.unit,
+                                  'readings': [
+                                                {'dc_ref': it['ref'],
+                                                 'dc_read': it['read'],
+                                                 'gain': it['gain']
+                                                } for it in i['items']]})
         json.dump(data, f, indent=2)
         f.close()
 
     def __test_adc_Atype(self, pinputs):
         gains = self.get_input_gains(pinputs[0])
-        results = [{'number': 0, 'gain': 0, 'ref': 0, 'read': 0}
-                   for i in range((len(pinputs) * len(gains)))]
+        results = [{'number': p, 'items': []} for p in pinputs]
         set_value_ant = 0
         for idx, g in enumerate(gains):
             if g <= 2:
@@ -72,24 +77,22 @@ class Test(Calib):
                 while not yes_no("Set %f V at all inputs.\nPress 'y' when ready." % set_value):
                     pass
                 set_value_ant = set_value
+            time.sleep(.5)
             for j, p in enumerate(pinputs):
-                time.sleep(.1)
-                self.conf_adc(p, 0, idx)
                 time.sleep(.3)
-                pos = idx * len(pinputs) + j
-                results[pos]['number'] = p
-                results[pos]['gain'] = g
-                results[pos]['ref'] = set_value
-                results[pos]['read'] = self.read_analog()
+                self.conf_adc(p, 0, idx)
+                results[j]['items'].append({
+                                            'gain': g,
+                                            'ref': set_value,
+                                            'read': self.read_analog()[0]})
         return results
 
     def __test_adc_AStype(self, pinputs):
-        self.__test_adc_Atype(pinputs)
+        return self.__test_adc_Atype(pinputs)
 
     def __test_adc_MNtype(self, pinputs, istypeN=True):
         gains = self.get_input_gains(pinputs[0])
-        results = [{'number': 0, 'gain': 0, 'ref': 0, 'read': 0}
-                   for i in range((len(pinputs) * len(gains)))]
+        results = [{'number': p, 'items': []} for p in pinputs]
         for idx, g in enumerate(gains):
             if istypeN:
                 set_value = 2. / g
@@ -98,34 +101,32 @@ class Test(Calib):
             self.set_analog(set_value)
             for j, p in enumerate(pinputs):
                 self.conf_adc(p, 0, idx)
-                pos = idx * len(pinputs) + j
-                results[pos]['number'] = p
-                results[pos]['gain'] = g
-                results[pos]['read'] = self.read_analog()
-                results[pos]['ref'] = set_value
+                results[j]['items'].append({
+                                            'gain': g,
+                                            'read': self.read_analog()[0],
+                                            'ref': set_value})
         return results
 
     def __test_adc_Ntype(self, pinputs):
-        self.__test_adc_MNtype(pinputs)
+        return self.__test_adc_MNtype(pinputs)
 
     def __test_adc_Mtype(self, pinputs):
         self.__test_adc_MNtype(pinputs, istypeN=False)
 
     def __test_adc_Stype(self, pinputs):
         set_values = range(5)
-        results = [{'number': 0, 'gain': 1, 'ref': 0, 'read': 0}
-                   for i in range((len(pinputs) * len(set_values)))]
+        results = [{'number': p, 'items': []} for p in pinputs]
         for idx, p in enumerate(pinputs):
             self.conf_adc(p, 0)
             for j, v in enumerate(set_values):
                 self.set_analog(v)
-                pos = idx * len(set_values) + j
-                results[pos]['number'] = p
-                results[pos]['ref'] = v
-                results[pos]['read'] = self.read_analog()
+                results[j]['items'].append({
+                                            'ref': v,
+                                            'read': self.read_analog()[0]})
         return results
 
     def __test_adc(self, inp_type, pinputs):
+        print(pinputs)
         if inp_type == InputType.INPUT_TYPE_A:
             results = self.__test_adc_Atype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_AS:

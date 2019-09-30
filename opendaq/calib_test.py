@@ -6,8 +6,10 @@ from opendaq.test import Test
 
 def test_cmd(args):
     test = Test(args.port)
-    test.test_dac(args.meter)
-    test.test_adc()
+    results_dac = test.test_dac(args.meter)
+    results_adc = test.test_adc()
+    if args.report:
+        test.create_test_json(results_adc, results_dac)
 
 
 def calib_cmd(args):

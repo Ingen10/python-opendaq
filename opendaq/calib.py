@@ -37,7 +37,7 @@ class Calib(DAQ):
 
         self.adc_slots, self.dac_slots = self.get_slots()
 
-    def read_analog(self):
+    def read_analog_value(self):
         self.read_adc()
         time.sleep(0.05)
         return DAQ.read_analog(self)[0]
@@ -63,18 +63,22 @@ class Calib(DAQ):
         data['humidity'] = int(raw_input('Enter humidity (%): '))
         data['temperature'] = float(raw_input('Enter temperature: '))
         for idx, i in enumerate(self.inputs_ids):
-            data['inputs'].append({'dcgain': calib_adc_params[idx].gain,
-                                   'offset1': calib_adc_params[idx].offset})
+            pos = len(self.inputs_ids) + idx
+            data['inputs'].append({'dc_gain': calib_adc_params[idx].gain,
+                                   'offset1': calib_adc_params[idx].offset,
+                                   'offset2': calib_adc_params[pos].offset
+                                   })
             if i == InputType.INPUT_TYPE_M:
                 pos = len(self.inputs_ids) + idx
-                data['inputs'][idx]['dcgain2'] = calib_adc_params[pos].gain
+                data['inputs'][idx]['dc_gain2'] = calib_adc_params[pos].gain
         for idx, o in enumerate(self.outputs_ids):
             data['outputs'].append({'gain': calib_dac_params[idx].gain,
                                     'offset': calib_dac_params[idx].offset})
         json.dump(data, f, indent=2)
         f.close()
 
-    def __calib_adc_ANtype(self, pinputs, calib, isAtype=True):
+    def __calib_adc_ANtype(self, pinputs, isAtype=True):
+        calib = self.get_adc_calib()
         volts = 0.0
         if (isAtype):
             while not yes_no("Set %dV at all inputs.\nPress 'y' when ready.\n" % volts):
@@ -84,16 +88,15 @@ class Calib(DAQ):
         for p in pinputs:
             gains = self.get_input_gains(p)
             raw_read = np.zeros(len(gains))
-            self.conf_adc(1, 0, 0)
-            time.sleep(0.2)
             for idx, g in enumerate(gains):
                 self.conf_adc(p, 0, idx)
-                time.sleep(.3)
                 raw_read[idx] = self.read_adc()
+            print(raw_read)
             corr_gain, corr_offset = np.polyfit(gains, raw_read, 1)
             calib[p - 1] = CalibReg(calib[p - 1].gain, corr_offset)
             pos = len(self.inputs_ids) + p - 1
             calib[pos] = CalibReg(calib[pos].gain, corr_gain)
+        self.set_adc_calib(calib)
         if (isAtype):
             volts = 6.0
             while not yes_no("Set %dV at all inputs.\nPress 'y' when ready.\n" % volts):
@@ -103,29 +106,60 @@ class Calib(DAQ):
             self.set_analog(volts)
         for p in pinputs:
             self.conf_adc(p, 0, 0)
+        time.sleep(.5)
+        for p in pinputs:
+            self.conf_adc(p, 0, 0)
             time.sleep(.3)
-            calib[p - 1] = CalibReg((self.read_analog()/volts), calib[p - 1].offset)
+            print(self.read_analog_value())
+            calib[p - 1] = CalibReg((self.read_analog_value()/volts), calib[p - 1].offset)
         return calib
 
-    def __calib_adc_Atype(self, pinputs, calib):
+    def __calib_adc_Atype(self, pinputs):
         print("ENTRADAS TIPO A")
         print(pinputs)
-        return self.__calib_adc_ANtype(pinputs, calib)
+        return self.__calib_adc_ANtype(pinputs)
 
-    def __calib_adc_Ntype(self, pinputs, calib):
+    def __calib_adc_Ntype(self, pinputs):
         # Igual que A
         print("ENTRADAS TIPO N")
         print(pinputs)
-        return self.__calib_adc_ANtype(pinputs, calib, isAtype=False)
+        return self.__calib_adc_ANtype(pinputs, isAtype=False)
 
-    def __calib_adc_AStype(self, pinputs, calib):
-        print("ENTRADAS TIPO AS")
-        print(pinputs)
-        self.__calib_adc_Atype(pinputs, calib)
-        print("CALIB SHUNTS")
+    def __calib_ads_shunts(self, pinputs):
+        set_values = [5, 15]
+        calib = self.get_adc_calib()
+        read_values = len(pinputs) * [np.zeros(len(set_values))]
+        for p in pinputs:
+            self.conf_adc(p, 1, 0)
+        time.sleep(.5)
+
+        for idx, p in enumerate(pinputs):
+            self.conf_adc(p, 1, 0)
+            time.sleep(.3)
+            for j, v in enumerate(set_values):
+                while not yes_no("Set %d mA at input %d.\nPress 'y' when ready.\n" % (v, p)):
+                    pass
+                read_values[idx][j] = self.read_analog()[0]
+        for idx, p in enumerate(pinputs):
+            gain, off = np.polyfit(read_values[idx], set_values, 1)
+            print("GAIN: ", (gain))
+            print("OFFSET: ", off)
+            pos = 2 * len(pinputs) + idx
+            print("POS: ", pos)
+            calib[pos] = CalibReg(gain, off)
         return calib
 
-    def __calib_adc_Mtype(self, pinputs, calib):
+    def __calib_adc_AStype(self, pinputs):
+        print("CALIB V")
+        print(pinputs)
+        #calib = self.__calib_adc_Atype(pinputs)
+        #self.set_adc_calib(calib)
+        print("CALIB SHUNTS")
+        calib = self.__calib_ads_shunts(pinputs)
+        return calib
+
+    def __calib_adc_Mtype(self, pinputs):
+        calib = self.get_adc_calib()
         print("ENTRADAS TIPO M")
         print(pinputs)
         volts = 0.0
@@ -151,12 +185,13 @@ class Calib(DAQ):
             for j, p in enumerate(pinputs):
                 self.conf_adc(p, 0, i)
                 time.sleep(.3)
-                read_value[j] = self.read_analog() / volts
+                read_value[j] = self.read_analog_value() / volts
             pos = len(self.inputs_ids) + i + 1
             calib[pos] = CalibReg(np.mean(read_value), calib[idx].offset)
         return calib
 
-    def __calib_adc_Stype(self, pinputs, calib):
+    def __calib_adc_Stype(self, pinputs):
+        calib = self.get_adc_calib()
         print("ENTRADAS TIPO S")
         print(pinputs)
         volts = [1., 2., 3., 4.]
@@ -167,7 +202,7 @@ class Calib(DAQ):
             read_analog = np.zeros(len(volts))
             for idx, v in enumerate(volts):
                 self.set_analog(v)
-                read_analog[idx] = self.read_analog()
+                read_analog[idx] = self.read_analog_value()
                 read_raw[idx] = self.read_adc()
             new_corr = np.polyfit(volts, read_analog, 1)[0]
             new_offset = np.polyfit(volts, read_raw, 1)[1]
@@ -182,19 +217,17 @@ class Calib(DAQ):
         return calib
 
     def __calib_adc(self, inp_type, pinputs):
-        calib = self.get_adc_calib()
         print("CALIB_IN_ADC")
-        self.print_calib(calib)
         if inp_type == InputType.INPUT_TYPE_A:
-            calib_out = self.__calib_adc_Atype(pinputs, calib)
+            calib_out = self.__calib_adc_Atype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_AS:
-            calib_out = self.__calib_adc_AStype(pinputs, calib)
+            calib_out = self.__calib_adc_AStype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_M:
-            calib_out = self.__calib_adc_Mtype(pinputs, calib)
+            calib_out = self.__calib_adc_Mtype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_S:
-            calib_out = self.__calib_adc_Stype(pinputs, calib)
+            calib_out = self.__calib_adc_Stype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_N:
-            calib_out = self.__calib_adc_Ntype(pinputs, calib)
+            calib_out = self.__calib_adc_Ntype(pinputs)
         print("CALIB OUT ADC")
         self.print_calib(calib_out)
         self.set_adc_calib(calib_out)
