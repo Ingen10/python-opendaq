@@ -142,10 +142,7 @@ class Calib(DAQ):
                 read_values[idx][j] = self.read_analog()[0]
         for idx, p in enumerate(pinputs):
             gain, off = np.polyfit(read_values[idx], set_values, 1)
-            print("GAIN: ", (gain))
-            print("OFFSET: ", off)
             pos = 2 * len(pinputs) + idx
-            print("POS: ", pos)
             calib[pos] = CalibReg(gain, off)
         return calib
 
