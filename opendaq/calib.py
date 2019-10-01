@@ -38,6 +38,9 @@ class Calib(DAQ):
         self.adc_slots, self.dac_slots = self.get_slots()
 
     def read_analog_value(self):
+        """Read data from ADC in volts.
+        :returns: Voltage value.
+        """
         self.read_adc()
         time.sleep(0.05)
         return DAQ.read_analog(self)[0]
@@ -126,31 +129,39 @@ class Calib(DAQ):
         return self.__calib_adc_ANtype(pinputs, isAtype=False)
 
     def __calib_ads_shunts(self, pinputs):
-        set_values = [5, 15]
         calib = self.get_adc_calib()
-        read_values = len(pinputs) * [np.zeros(len(set_values))]
+        for j, p in enumerate(pinputs):
+            while not yes_no("Set 0 mA at input %d.\nPress 'y' when ready.\n" % p):
+                pass
+            gains = self.get_input_gains(p)
+            raw_read = np.zeros(len(gains))
+            for idx, g in enumerate(gains):
+                self.conf_adc(p, 1, idx)
+                raw_read[idx] = self.read_adc()
+            print(raw_read)
+            corr_gain, corr_offset = np.polyfit(gains, raw_read, 1)
+            pos = 2 * len(pinputs) + j
+            calib[pos] = CalibReg(calib[pos].gain, corr_offset)
+        self.set_adc_calib(calib)
         for p in pinputs:
             self.conf_adc(p, 1, 0)
         time.sleep(.5)
-
+        current = 15.0
         for idx, p in enumerate(pinputs):
             self.conf_adc(p, 1, 0)
             time.sleep(.3)
-            for j, v in enumerate(set_values):
-                while not yes_no("Set %d mA at input %d.\nPress 'y' when ready.\n" % (v, p)):
-                    pass
-                read_values[idx][j] = self.read_analog()[0]
-        for idx, p in enumerate(pinputs):
-            gain, off = np.polyfit(read_values[idx], set_values, 1)
+            while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (current, p)):
+                pass
+            print(self.read_analog()[0])
             pos = 2 * len(pinputs) + idx
-            calib[pos] = CalibReg(gain, off)
+            calib[pos] = CalibReg((self.read_analog()[0]/current), calib[pos].offset)
         return calib
 
     def __calib_adc_AStype(self, pinputs):
         print("CALIB V")
         print(pinputs)
-        #calib = self.__calib_adc_Atype(pinputs)
-        #self.set_adc_calib(calib)
+        calib = self.__calib_adc_Atype(pinputs)
+        self.set_adc_calib(calib)
         print("CALIB SHUNTS")
         calib = self.__calib_ads_shunts(pinputs)
         return calib

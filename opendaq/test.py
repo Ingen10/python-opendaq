@@ -87,8 +87,30 @@ class Test(Calib):
                                             'read': self.read_analog()[0]})
         return results
 
+    def __test_adc_shunts(self, pinputs):
+        results = [{'number': p, 'items': []} for p in pinputs]
+        for j, p in enumerate(pinputs):
+            gains = self.get_input_gains(p)
+            for idx, g in enumerate(gains):
+                if g <= 2:
+                    set_value = 20.0
+                elif 2 < g <= 16:
+                    set_value = 10.0
+                elif g == 32:
+                    set_value = 5.0
+                while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (set_value, p)):
+                    pass
+                time.sleep(.3)
+                self.conf_adc(p, 1, idx)
+                results[j]['items'].append({
+                                            'gain': g,
+                                            'ref': set_value,
+                                            'read': self.read_analog()[0]})
+        return results
+
     def __test_adc_AStype(self, pinputs):
         return self.__test_adc_Atype(pinputs)
+        self.__test_adc_shunts(pinputs)
 
     def __test_adc_MNtype(self, pinputs, istypeN=True):
         gains = self.get_input_gains(pinputs[0])

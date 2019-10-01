@@ -49,29 +49,26 @@ class InputAS(InputBase):
     def __init__(self, calib=None):
         InputBase.__init__(self, 
             type_str = 'INPUT_TYPE_AS',
-            inputmodes = [0, 1]
+            inputmodes = [0, 1],
+            unit = ['V', 'mA'] 
         )
-    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2, inputmode):
+    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2, inputmode=0):
         adc_gain = 2.**(self.bits-1)/self.vmax
-        if inputmode:
-            gain = adc_gain*self._gains[gain_id]*calibreg1.gain
-            offset = calibreg1.offset*self._gains[gain_id]
-            fact = 10.0
-        else:
-            gain = adc_gain*self._gains[gain_id]*calibreg1.gain*calibreg2.gain
-            offset = calibreg1.offset + calibreg2.offset*self._gains[gain_id]
-            fact = 1.0
-        print(gain)
-        print(offset)
-        print(fact)
+        gain = adc_gain*self._gains[gain_id]*calibreg1.gain*calibreg2.gain
+        offset = calibreg1.offset + calibreg2.offset*self._gains[gain_id]
         try:
-            result = [round((v - offset)*fact/gain, 5) for v in raw]
+            result = [round((v - offset)/gain, 5) for v in raw]
         except TypeError:
-            result = round((raw - offset)*fact/gain, 5)
-        return (result, self.unit)
+            result = round((raw - offset)/gain, 5)
+        if inputmode:
+            try:
+                result = [(10.0 * r) for r in result]
+            except TypeError:
+                result *= 10.0
+        return (result, self.unit[inputmode])
 
 class InputM(InputBase):
-    # Analog input with shunt
+    # openDAQ M analog input 
     _input_id = InputType.INPUT_TYPE_M
     def __init__(self, calib=None):
         InputBase.__init__(self, 
@@ -83,7 +80,7 @@ class InputM(InputBase):
         )
 
 class InputS(InputBase):
-    # Analog input with shunt
+    # openDAQ S analog input
     _input_id = InputType.INPUT_TYPE_S
     def __init__(self, calib=None):
         InputBase.__init__(self,
@@ -95,7 +92,7 @@ class InputS(InputBase):
         )
 
 class InputN(InputBase):
-    # Analog input with shunt
+    # openDAQ N analog input
     _input_id = InputType.INPUT_TYPE_N
     def __init__(self, calib=None):
         InputBase.__init__(self, 
@@ -127,7 +124,7 @@ class OutputL(OutputBase):
         )
 
 class OutputM(OutputBase):
-    # Tachometer output
+    # openDAQ M/N output
     _output_id = OutputType.OUTPUT_TYPE_M
     def __init__(self):
         OutputBase.__init__(self, 

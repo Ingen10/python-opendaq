@@ -194,8 +194,6 @@ class DAQ(object):
             - Offset raw correction
         :raises: ValueError
         """
-        print("GAIN: ", int(gain))
-        print("OFF: ", int(offset))
         return self.send_command(mkcmd(CMD.SET_CALIB, 'Bhh', slot_id,
                                        int(gain), int(offset)), 'Bhh')
 
