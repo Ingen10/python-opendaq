@@ -74,6 +74,10 @@ class Calib(DAQ):
             if i == InputType.INPUT_TYPE_M:
                 pos = len(self.inputs_ids) + idx
                 data['inputs'][idx]['dc_gain2'] = calib_adc_params[pos].gain
+            if i == InputType.INPUT_TYPE_AS:
+                pos = 2*len(self.inputs_ids) + idx
+                data['inputs'][idx]['dc_gain3'] = calib_adc_params[pos].gain
+                data['inputs'][idx]['offset3'] = calib_adc_params[pos].offset
         for idx, o in enumerate(self.outputs_ids):
             data['outputs'].append({'gain': calib_dac_params[idx].gain,
                                     'offset': calib_dac_params[idx].offset})
@@ -146,7 +150,7 @@ class Calib(DAQ):
         for p in pinputs:
             self.conf_adc(p, 1, 0)
         time.sleep(.5)
-        current = 15.0
+        current = 20.0
         for idx, p in enumerate(pinputs):
             self.conf_adc(p, 1, 0)
             time.sleep(.3)

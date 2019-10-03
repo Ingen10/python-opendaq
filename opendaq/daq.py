@@ -260,7 +260,7 @@ class DAQ(object):
         """
         if not (1 <= pinput <= len(self.__model.adc)):
             raise ValueError("Invalid positive input selection")
-        print(self.__model.adc[pinput-1]._inputmodes)
+        print(self.__model.adc[pinput-1].inputmodes)
 
 
     def set_id(self, id):

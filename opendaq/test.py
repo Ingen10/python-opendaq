@@ -42,8 +42,8 @@ class Test(Calib):
             out = self.get_dac_types(int(o['number']))
             data['items'].append({'dc_range': (out.vmax - out.vmin),
                                   'number': o['number'],
-                                  'type': out.type_str,
-                                  'unit': out.unit,
+                                  'type': 'current_output',
+                                  'unit': o['unit'],
                                   'readings': [
                                                 {'dc_ref': o['ref'],
                                                  'dc_read': o['read']
@@ -52,8 +52,8 @@ class Test(Calib):
             inp = self.get_adc_types(int(i['number']))
             data['items'].append({'dc_range': (inp.vmax - inp.vmin),
                                   'number': i['number'],
-                                  'type': inp.type_str,
-                                  'unit': inp.unit,
+                                  'type': 'stat_input',
+                                  'unit': i['unit'],
                                   'readings': [
                                                 {'dc_ref': it['ref'],
                                                  'dc_read': it['read'],
@@ -64,8 +64,11 @@ class Test(Calib):
 
     def __test_adc_Atype(self, pinputs):
         gains = self.get_input_gains(pinputs[0])
-        results = [{'number': p, 'items': []} for p in pinputs]
+        results = [{'number': p, 'items': [], 'unit': 'V'} for p in pinputs]
         set_value_ant = 0
+        for p in pinputs:
+            self.conf_adc(p, 0, 0)
+        time.sleep(.5)
         for idx, g in enumerate(gains):
             if g <= 2:
                 set_value = 5.
@@ -88,20 +91,25 @@ class Test(Calib):
         return results
 
     def __test_adc_shunts(self, pinputs):
-        results = [{'number': p, 'items': []} for p in pinputs]
+        results = [{'number': p, 'items': [], 'unit': 'mA'} for p in pinputs]
+        for p in pinputs:
+            self.conf_adc(p, 1, 0)
+        time.sleep(.5)
         for j, p in enumerate(pinputs):
             gains = self.get_input_gains(p)
+            set_value_ant = 0
             for idx, g in enumerate(gains):
-                if g <= 2:
-                    set_value = 20.0
-                elif 2 < g <= 16:
+                if g <= 16:
                     set_value = 10.0
                 elif g == 32:
                     set_value = 5.0
-                while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (set_value, p)):
-                    pass
+                if (set_value_ant != set_value):
+                    set_value_ant = set_value
+                    while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (set_value, p)):
+                        pass
                 time.sleep(.3)
                 self.conf_adc(p, 1, idx)
+                print(self.read_analog()[0])
                 results[j]['items'].append({
                                             'gain': g,
                                             'ref': set_value,
@@ -109,12 +117,15 @@ class Test(Calib):
         return results
 
     def __test_adc_AStype(self, pinputs):
-        return self.__test_adc_Atype(pinputs)
-        self.__test_adc_shunts(pinputs)
+        results = self.__test_adc_Atype(pinputs)
+        results_s = self.__test_adc_shunts(pinputs)
+        results.extend(results_s)
+        return results
 
     def __test_adc_MNtype(self, pinputs, istypeN=True):
         gains = self.get_input_gains(pinputs[0])
-        results = [{'number': p, 'items': []} for p in pinputs]
+        unit = self.get_adc_types(pinputs[0]).unit
+        results = [{'number': p, 'items': [], 'unit': unit} for p in pinputs]
         for idx, g in enumerate(gains):
             if istypeN:
                 set_value = 2. / g
@@ -137,7 +148,8 @@ class Test(Calib):
 
     def __test_adc_Stype(self, pinputs):
         set_values = range(5)
-        results = [{'number': p, 'items': []} for p in pinputs]
+        unit = self.get_adc_types(pinputs[0]).unit
+        results = [{'number': p, 'items': [], 'unit': unit} for p in pinputs]
         for idx, p in enumerate(pinputs):
             self.conf_adc(p, 0)
             for j, v in enumerate(set_values):
@@ -174,7 +186,8 @@ class Test(Calib):
 
     def __test_dac_Ltype(self, outputs):
         current = 10.0
-        results = [{'number': 0, 'ref': 0, 'read': 0} for i in range(len(outputs))]
+        unit = self.get_dac_types(outputs[0]).unit
+        results = [{'number': 0, 'ref': 0, 'read': 0, 'unit': unit} for i in range(len(outputs))]
         for idx, o in enumerate(outputs):
             while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % o):
                 pass
@@ -192,7 +205,8 @@ class Test(Calib):
         vmin = self.get_adc_types(0).vmin
         vmax = self.get_adc_types(0).vmax
         volts = range(int(vmin), int(vmax), 2)
-        results = [{'number': 1, 'ref': 0, 'read': 0} for i in range(len(volts))]
+        unit = self.get_dac_types(outputs[0]).unit
+        results = [{'number': 1, 'ref': 0, 'read': 0, 'unit': unit} for i in range(len(volts))]
         for idx, v in enumerate(volts):
             self.set_analog(v)
             time.sleep(.5)
@@ -205,7 +219,8 @@ class Test(Calib):
         vmax = self.get_adc_types(0).vmax
         volts = range(int(vmin), int(vmax))
         set_values, read_values = self.measure_dac(volts, meter)
-        results = [{'number': 1, 'ref': 0, 'read': 0} for i in range(len(volts))]
+        unit = self.get_dac_types(outputs[0]).unit
+        results = [{'number': 1, 'ref': 0, 'read': 0, 'unit': unit} for i in range(len(volts))]
         for idx in range(len(volts)):
             results[idx]['ref'] = set_values[idx]
             results[idx]['read'] = read_values[idx]
