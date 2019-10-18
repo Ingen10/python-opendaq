@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import sys
+import readline
 
 import logging
 import json
@@ -141,7 +142,11 @@ class Calib(DAQ):
             raw_read = np.zeros(len(gains))
             for idx, g in enumerate(gains):
                 self.conf_adc(p, 1, idx)
-                raw_read[idx] = self.read_adc()
+                suma = 0
+                for i in range(20):
+                    time.sleep(0.01)
+                    suma += self.read_adc()
+                raw_read[idx] = suma / 20
             print(raw_read)
             corr_gain, corr_offset = np.polyfit(gains, raw_read, 1)
             pos = 2 * len(pinputs) + j
@@ -150,15 +155,19 @@ class Calib(DAQ):
         for p in pinputs:
             self.conf_adc(p, 1, 0)
         time.sleep(.5)
-        current = 20.0
+        current = 15.0
         for idx, p in enumerate(pinputs):
             self.conf_adc(p, 1, 0)
             time.sleep(.3)
             while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (current, p)):
                 pass
-            print(self.read_analog()[0])
+            suma = 0.0
+            for i in range(20):
+                time.sleep(0.01)
+                suma += self.read_analog()[0]
+                print(self.read_analog()[0])
             pos = 2 * len(pinputs) + idx
-            calib[pos] = CalibReg((self.read_analog()[0]/current), calib[pos].offset)
+            calib[pos] = CalibReg(((suma/20.0)/current), calib[pos].offset)
         return calib
 
     def __calib_adc_AStype(self, pinputs):

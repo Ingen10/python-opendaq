@@ -30,6 +30,7 @@ class InputType(Enum):
     INPUT_TYPE_M = 3
     INPUT_TYPE_S = 4
     INPUT_TYPE_N = 5
+    INPUT_TYPE_P = 6
 
 class OutputType(Enum):
     OUTPUT_TYPE_M = 1
@@ -40,6 +41,12 @@ class OutputType(Enum):
 class InputA(InputBase):
     # Analog input without shut
     _input_id = InputType.INPUT_TYPE_A
+    def __init__(self, calib=None):
+        InputBase.__init__(self)
+
+class InputP(InputBase):
+    # Analog input without shut
+    _input_id = InputType.INPUT_TYPE_P
     def __init__(self, calib=None):
         InputBase.__init__(self)
  
@@ -221,7 +228,7 @@ class ModelTP08ABRR(DAQModel):
         return pinput - 1, len(self.adc) + pinput - 1
 
 class ModelTP08ABRR2(DAQModel): # new version of ABRR with shunt resistors for loop current
-    _id = 17
+    _id = 18
     model_str='TP08ABRR'
     serial_fmt='TP08x10%04d'
     adc_slots=12
@@ -335,8 +342,27 @@ class ModelTP08LLLL(DAQModel):
         return pinput - 1, len(self.adc) + pinput - 1
 
 
-class ModelTP08LLAR(DAQModel):
+class ModelTP08ABPR(DAQModel):
     _id = 16
+    model_str='TP08ABPR'
+    serial_fmt='TP08x10%04d'
+    adc_slots=6
+    dac_slots=2
+    npios=2
+    nleds=6
+    _output_t=2*[OutputType.OUTPUT_TYPE_T]
+    _input_t=4*[InputType.INPUT_TYPE_A] + 2*[InputType.INPUT_TYPE_P]
+
+    def _get_adc_slots(self, gain_id, pinput, mode):
+        """There are two calibration slot for each pinput:
+        - One slot to correct the analog error
+        - One slot to correct the gain amplification
+         """
+        return pinput - 1, len(self.adc) + pinput - 1
+
+
+class ModelTP08LLAR(DAQModel):
+    _id = 17
     model_str='TP08LLAR'
     serial_fmt='TP08x10%04d'
     adc_slots=6
