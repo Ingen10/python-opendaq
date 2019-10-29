@@ -84,7 +84,7 @@ def calib_cmd(args, test=False):
     elif args.dac:
         logging.info(title("Calibrating DAC"))
         meter = usbtmc.RigolDM3058(args.meter) if args.auto else None
-        calib.calibrate_dac(dac_file=args.file, meter=meter)
+        calib.calib_dac(args.file, meter)
         if args.json:
             calib.create_calib_json()
     else:

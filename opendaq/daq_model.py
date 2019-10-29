@@ -45,7 +45,7 @@ class PGAGains(IntEnum):
 class InputBase(object):
     _input_id = 0
     def __init__(self, calib=None, type_str='INP_A', bits=16, vmin=-24, vmax=24, 
-                 _gains=[1, 2, 4, 5, 8, 10, 16, 32], inputmodes=[0], unit='V'): 
+                 _gains=[1, 2, 4, 5, 8, 10, 16, 32], inputmodes=[0], unit=["V"]): 
         self.type_str = type_str
         self.bits = bits
         self.vmin = vmin
@@ -65,7 +65,7 @@ class InputBase(object):
             result = [round((v - offset)/gain, 5) for v in raw]
         except TypeError:
             result = round((raw - offset)/gain, 5)
-        return (result, self.unit)   
+        return (result, self.unit[inputmode])   
 
     @classmethod
     def new(cls, input_id, calib=None):

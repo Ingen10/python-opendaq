@@ -39,7 +39,7 @@ class Test(Calib):
             "time": int(time.time()),
             "items": []
         }
-        for idx, o in enumerate(results_outputs):
+        for o in results_outputs:
             out = self.get_dac_types(int(o['number']))
             data['items'].append({'dc_range': (out.vmax - out.vmin),
                                   'number': o['number'],
@@ -49,7 +49,7 @@ class Test(Calib):
                                                 {'dc_ref': o['ref'],
                                                  'dc_read': o['read']
                                                 }]})
-        for idx, i in enumerate(results_inputs):
+        for i in results_inputs:
             inp = self.get_adc_types(int(i['number']))
             data['items'].append({'dc_range': (inp.vmax - inp.vmin),
                                   'number': i['number'],
@@ -145,13 +145,13 @@ class Test(Calib):
         return self.__test_adc_MNtype(pinputs)
 
     def __test_adc_Mtype(self, pinputs):
-        self.__test_adc_MNtype(pinputs, istypeN=False)
+        return self.__test_adc_MNtype(pinputs, istypeN=False)
 
     def __test_adc_Stype(self, pinputs):
         set_values = range(5)
         unit = self.get_adc_types(pinputs[0]).unit
         results = [{'number': p, 'items': [], 'unit': unit} for p in pinputs]
-        for idx, p in enumerate(pinputs):
+        for p in pinputs:
             self.conf_adc(p, 0)
             for j, v in enumerate(set_values):
                 self.set_analog(v)

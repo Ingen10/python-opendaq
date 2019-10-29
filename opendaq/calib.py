@@ -31,8 +31,8 @@ def yes_no(question):
 class Calib(DAQ):
     def __init__(self, port):
         DAQ.__init__(self, port)
-        self.outputs_ids = [self.get_dac_types(i)._output_id for i in range(len(self.get_dac_types()))]
-        self.inputs_ids = [self.get_adc_types(i)._input_id for i in range(len(self.get_adc_types()))]
+        self.outputs_ids = [self.get_dac_types(i)._output_id for i in range(1, len(self.get_dac_types()) + 1)]
+        self.inputs_ids = [self.get_adc_types(i)._input_id for i in range(1, len(self.get_adc_types()) + 1)]
 
         self.serial = self.get_info()[2]
 
@@ -79,7 +79,7 @@ class Calib(DAQ):
                 pos = 2*len(self.inputs_ids) + idx
                 data['inputs'][idx]['dc_gain3'] = calib_adc_params[pos].gain
                 data['inputs'][idx]['offset3'] = calib_adc_params[pos].offset
-        for idx, o in enumerate(self.outputs_ids):
+        for idx in enumerate(self.outputs_ids):
             data['outputs'].append({'gain': calib_dac_params[idx].gain,
                                     'offset': calib_dac_params[idx].offset})
         json.dump(data, f, indent=2)
@@ -96,10 +96,9 @@ class Calib(DAQ):
         for p in pinputs:
             gains = self.get_input_gains(p)
             raw_read = np.zeros(len(gains))
-            for idx, g in enumerate(gains):
+            for idx, _ in enumerate(gains):
                 self.conf_adc(p, 0, idx)
                 raw_read[idx] = self.read_adc()
-            print(raw_read)
             corr_gain, corr_offset = np.polyfit(gains, raw_read, 1)
             calib[p - 1] = CalibReg(calib[p - 1].gain, corr_offset)
             pos = len(self.inputs_ids) + p - 1
@@ -134,21 +133,22 @@ class Calib(DAQ):
         return self.__calib_adc_ANtype(pinputs, isAtype=False)
 
     def __calib_ads_shunts(self, pinputs):
+        n_measures = 20
         calib = self.get_adc_calib()
         for j, p in enumerate(pinputs):
             while not yes_no("Set 0 mA at input %d.\nPress 'y' when ready.\n" % p):
                 pass
             gains = self.get_input_gains(p)
             raw_read = np.zeros(len(gains))
-            for idx, g in enumerate(gains):
+            for idx, _ in enumerate(gains):
                 self.conf_adc(p, 1, idx)
                 suma = 0
-                for i in range(20):
+                for i in range(n_measures):
                     time.sleep(0.01)
                     suma += self.read_adc()
-                raw_read[idx] = suma / 20
+                raw_read[idx] = suma / n_measures
             print(raw_read)
-            corr_gain, corr_offset = np.polyfit(gains, raw_read, 1)
+            _, corr_offset = np.polyfit(gains, raw_read, 1)
             pos = 2 * len(pinputs) + j
             calib[pos] = CalibReg(calib[pos].gain, corr_offset)
         self.set_adc_calib(calib)
@@ -162,12 +162,12 @@ class Calib(DAQ):
             while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (current, p)):
                 pass
             suma = 0.0
-            for i in range(20):
+            for i in range(n_measures):
                 time.sleep(0.01)
                 suma += self.read_analog()[0]
                 print(self.read_analog()[0])
             pos = 2 * len(pinputs) + idx
-            calib[pos] = CalibReg(((suma/20.0)/current), calib[pos].offset)
+            calib[pos] = CalibReg(((suma/float(n_measures))/current), calib[pos].offset)
         return calib
 
     def __calib_adc_AStype(self, pinputs):
@@ -189,7 +189,7 @@ class Calib(DAQ):
             gains = self.get_input_gains(p)
             raw_read = np.zeros(len(gains))
             corr_gain = np.zeros(len(gains))
-            for idx, g in enumerate(gains):
+            for idx, _ in enumerate(gains):
                 self.conf_adc(p, 0, idx)
                 time.sleep(.3)
                 raw_read[idx] = self.read_adc()
@@ -225,8 +225,7 @@ class Calib(DAQ):
                 self.set_analog(v)
                 read_analog[idx] = self.read_analog_value()
                 read_raw[idx] = self.read_adc()
-            new_corr = np.polyfit(volts, read_analog, 1)[0]
-            new_offset = np.polyfit(volts, read_raw, 1)[1]
+            new_corr,  new_offset = np.polyfit(volts, read_analog, 1)
             calib[p - 1] = CalibReg(new_corr, new_offset)
         self.set_analog(0)
         ninputs = [2, 1, 4, 3, 6, 5, 8, 7]
@@ -235,6 +234,24 @@ class Calib(DAQ):
             time.sleep(.3)
             pos = len(self.inputs_ids) + i
             calib[idx] = CalibReg(calib[pos].gain, self.read_adc())
+        return calib
+
+    def __calib_adc_Ptype(self, pinputs):
+        calib = self.get_adc_calib()
+        print("ENTRADAS TIPO P")
+        print(pinputs)
+        set_values = [100, 200]
+        read_values = np.zeros(len(set_values))
+        for p in pinputs:
+            self.conf_adc(p)
+            for i, v in enumerate(set_values):
+                while not yes_no("Set %d ohms at input %d and press 'y' when ready.\n" % (v, p)):
+                    pass
+                read_values[i] = self.read_analog()[0]
+                print(read_values[i])
+            gain, offset = np.polyfit(set_values, read_values, 1)
+            print(gain, offset)
+            calib[p -1] = CalibReg(gain, offset)
         return calib
 
     def __calib_adc(self, inp_type, pinputs):
@@ -249,6 +266,8 @@ class Calib(DAQ):
             calib_out = self.__calib_adc_Stype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_N:
             calib_out = self.__calib_adc_Ntype(pinputs)
+        elif inp_type == InputType.INPUT_TYPE_P:
+            calib_out = self.__calib_adc_Ptype(pinputs)
         print("CALIB OUT ADC")
         self.print_calib(calib_out)
         self.set_adc_calib(calib_out)
@@ -283,7 +302,7 @@ class Calib(DAQ):
         return calib
 
     def __calib_dac_from_file(self, outputs, calib, dac_file):
-        for idx, out in enumerate(outputs):
+        for idx, _ in enumerate(outputs):
             set_values = []
             read_values = []
             for row in np.loadtxt(dac_file):

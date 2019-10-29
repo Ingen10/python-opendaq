@@ -345,6 +345,7 @@ class DAQ(object):
         :returns: Voltage value.
         """
         value = self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
+        print("VALUE: %d\n"%value)
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
 
