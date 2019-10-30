@@ -20,11 +20,22 @@
 
 from __future__ import division
 
-from enum import Enum
+from enum import Enum, IntEnum
 import numpy as np
 
-from .daq_model import PGAGains
 
+class PGAGains(IntEnum):
+    """A wrapper around IntEnum for defining the gain values of a PGA."""
+    @classmethod
+    def new(cls, values):
+        def val_str(val):
+            if 0 < val < 1:
+                return 'x0%s' % str(val)[2:4]
+            return 'x%d' % val
+
+        a = cls('Gains', [val_str(v) for v in values], start=0)
+        a.values = values
+        return a
 
 class InputBase(object):
     _input_id = 0

@@ -160,7 +160,6 @@ class DAQ(object):
         ret = bytearray(self.ser.read(ret_len))
         if self.__debug:
             print("RECV:", bytes2hex(ret))
-
         return parse_command(ret, fmt, ret_len)
 
     def enable_crc(self, on):
@@ -356,10 +355,9 @@ class DAQ(object):
         """
         if self.__model.fw_ver < 120:
             raise Warning("Function not implemented in this FW. Try updating")
-        print(mkcmd(CMD.AIN_ALL, 'BB', nsamples, gain))
-
-        values = self.send_command(mkcmd(CMD.AIN_ALL, 'BB', nsamples, gain), '8h')
-        return [self.__model.raw_to_volts(v, gain, i, 0) for i, v in
+        ret_fmt = '%dh' % len(self.get_adc_types())
+        values = self.send_command(mkcmd(CMD.AIN_ALL, 'BB', nsamples, gain), ret_fmt)
+        return [self.__model.raw_to_volts(v, gain, i + 1, 0) for i, v in
                 enumerate(values)]
 
     def conf_adc(self, pinput=8, inputmode=0, gain=0, nsamples=20):

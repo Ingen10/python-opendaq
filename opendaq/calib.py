@@ -6,9 +6,9 @@ import logging
 import json
 from terminaltables import AsciiTable
 
-from opendaq.daq import DAQ
-from opendaq.models import InputType, OutputType
-from opendaq.daq_model import CalibReg
+from .daq import DAQ
+from .models import InputType, OutputType
+from .daq_model import CalibReg
 
 log_formatter = logging.Formatter("%(message)s")
 
@@ -173,7 +173,7 @@ class Calib(DAQ):
                                                                                   p)):
                 pass
             suma = 0.0
-            for i in range(n_measures):
+            for _ in range(n_measures):
                 time.sleep(0.01)
                 suma += self.read_analog()[0]
                 print(self.read_analog()[0])

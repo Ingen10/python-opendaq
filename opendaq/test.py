@@ -5,8 +5,8 @@ import json
 import logging
 from terminaltables import AsciiTable
 
-from opendaq.models import InputType, OutputType
-from opendaq.calib import Calib
+from .models import InputType, OutputType
+from .calib import Calib
 
 log_formatter = logging.Formatter("%(message)s")
 

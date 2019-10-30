@@ -19,9 +19,9 @@
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
-from opendaq.daq_model import DAQModel
-from opendaq.inputs import InputType
-from opendaq.outputs import OutputType
+from .daq_model import DAQModel
+from .inputs import InputType
+from .outputs import OutputType
 from enum import Enum
 
 

@@ -24,26 +24,12 @@ import time
 from collections import namedtuple
 from enum import IntEnum
 
-from opendaq.outputs import OutputBase
-from opendaq.inputs import InputBase
+from .outputs import OutputBase
+from .inputs import InputBase
 
 MIN_FW_VERSION = 131
 
 CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
-
-
-class PGAGains(IntEnum):
-    """A wrapper around IntEnum for defining the gain values of a PGA."""
-    @classmethod
-    def new(cls, values):
-        def val_str(val):
-            if 0 < val < 1:
-                return 'x0%s' % str(val)[2:4]
-            return 'x%d' % val
-
-        a = cls('Gains', [val_str(v) for v in values], start=0)
-        a.values = values
-        return a
 
 
 class DAQModel(object):
