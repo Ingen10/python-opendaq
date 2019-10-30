@@ -1,7 +1,6 @@
 import time
 import numpy as np
 import sys
-import readline
 
 import logging
 import json
@@ -31,8 +30,10 @@ def yes_no(question):
 class Calib(DAQ):
     def __init__(self, port):
         DAQ.__init__(self, port)
-        self.outputs_ids = [self.get_dac_types(i)._output_id for i in range(1, len(self.get_dac_types()) + 1)]
-        self.inputs_ids = [self.get_adc_types(i)._input_id for i in range(1, len(self.get_adc_types()) + 1)]
+        self.outputs_ids = [self.get_dac_types(i)._output_id
+                            for i in range(1, len(self.get_dac_types()) + 1)]
+        self.inputs_ids = [self.get_adc_types(i)._input_id
+                           for i in range(1, len(self.get_adc_types()) + 1)]
 
         self.serial = self.get_info()[2]
 
@@ -46,6 +47,14 @@ class Calib(DAQ):
         time.sleep(0.05)
         return DAQ.read_analog(self)[0]
 
+    def measure_dac(self, values, meter):
+        y = []
+        for v in values:
+            self.set_analog(v)
+            time.sleep(0.1)
+            y.append(meter.measure('volt_dc'))
+        return values, y
+
     def reset_calib(self):
         adc_calib = self.get_adc_calib()
         dac_calib = self.get_dac_calib()
@@ -55,7 +64,8 @@ class Calib(DAQ):
     def create_calib_json(self):
         calib_dac_params = self.get_dac_calib()
         calib_adc_params = self.get_adc_calib()
-        filename = '%s_%s_calib.json' % (self.serial_str, time.strftime('%y%m%d'))
+        filename = '%s_%s_calib.json' % (self.serial_str,
+                                         time.strftime('%y%m%d'))
         f = open(filename, 'w')
         data = {
             "model": self.hw_ver,
@@ -118,7 +128,8 @@ class Calib(DAQ):
             self.conf_adc(p, 0, 0)
             time.sleep(.3)
             print(self.read_analog_value())
-            calib[p - 1] = CalibReg((self.read_analog_value()/volts), calib[p - 1].offset)
+            calib[p - 1] = CalibReg((self.read_analog_value()/volts),
+                                    calib[p - 1].offset)
         return calib
 
     def __calib_adc_Atype(self, pinputs):
@@ -143,11 +154,10 @@ class Calib(DAQ):
             for idx, _ in enumerate(gains):
                 self.conf_adc(p, 1, idx)
                 suma = 0
-                for i in range(n_measures):
+                for _ in range(n_measures):
                     time.sleep(0.01)
                     suma += self.read_adc()
                 raw_read[idx] = suma / n_measures
-            print(raw_read)
             _, corr_offset = np.polyfit(gains, raw_read, 1)
             pos = 2 * len(pinputs) + j
             calib[pos] = CalibReg(calib[pos].gain, corr_offset)
@@ -159,7 +169,8 @@ class Calib(DAQ):
         for idx, p in enumerate(pinputs):
             self.conf_adc(p, 1, 0)
             time.sleep(.3)
-            while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (current, p)):
+            while not yes_no("Set %f mA at input %d.\nPress 'y' when ready.\n" % (current,
+                                                                                  p)):
                 pass
             suma = 0.0
             for i in range(n_measures):
@@ -251,7 +262,7 @@ class Calib(DAQ):
                 print(read_values[i])
             gain, offset = np.polyfit(set_values, read_values, 1)
             print(gain, offset)
-            calib[p -1] = CalibReg(gain, offset)
+            calib[p - 1] = CalibReg(gain, offset)
         return calib
 
     def __calib_adc(self, inp_type, pinputs):
@@ -282,6 +293,7 @@ class Calib(DAQ):
                 self.__calib_adc(t, inputs)
 
     def __calib_dac_Ltype(self, outputs, calib):
+        calib = self.get_dac_calib()
         print("SALIDAS TIPO L")
         print(outputs)
         current_values = [5, 20]
@@ -289,7 +301,7 @@ class Calib(DAQ):
             read_values = np.zeros(len(current_values))
             for j, c in enumerate(current_values):
                 logging.info("Target: %d mA", c)
-                while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % o):
+                while not yes_no("Connect the AOUT%d to the power and press 'y' when ready.\n" % o):
                     pass
                 r = self.set_analog(c, o)
                 while not(r):
@@ -301,7 +313,8 @@ class Calib(DAQ):
             calib[idx] = CalibReg(gain, offset)
         return calib
 
-    def __calib_dac_from_file(self, outputs, calib, dac_file):
+    def __calib_dac_from_file(self, outputs, dac_file):
+        calib = self.get_dac_calib()
         for idx, _ in enumerate(outputs):
             set_values = []
             read_values = []
@@ -312,13 +325,26 @@ class Calib(DAQ):
             calib[idx] = CalibReg(gain, offset)
         return calib
 
+    def __calib_auto_dac(self, outputs, meter):
+        out_type = self.get_dac_types(0)
+        volts = range(out_type.vmin, out_type.vmax + 1)
+        x, y = self.measure_dac(volts, meter)
+        gain, offset = np.polyfit(x, y, 1)
+        calib = self.get_dac_calib()[0]
+        new_calib = CalibReg(calib.gain*gain, calib.offset + offset)
+        return new_calib
+
     def __calib_dac(self, out_type, outputs, dac_file, meter):
         calib = self.get_dac_calib()
         print("CALIB_IN_DAC")
         self.print_calib(calib)
         if out_type in [OutputType.OUTPUT_TYPE_M, OutputType.OUTPUT_TYPE_S,
                         OutputType.OUTPUT_TYPE_T]:
-            calib_out = self.__calib_dac_from_file(outputs, calib, dac_file)
+            if meter and out_type in [OutputType.OUTPUT_TYPE_M,
+                                      OutputType.OUTPUT_TYPE_S]:
+                calib_out = self.__calib_auto_dac(outputs, meter)
+            else:
+                calib_out = self.__calib_dac_from_file(outputs, dac_file)
         elif out_type == OutputType.OUTPUT_TYPE_L:
             calib_out = self.__calib_dac_Ltype(outputs, calib)
         print("CALIB_OUT_ADC")

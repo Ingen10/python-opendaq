@@ -19,7 +19,6 @@
 # along with opendaq.  If not, see <http://www.gnu.org/licenses/>.
 
 import struct
-import array
 
 
 class CRCError(ValueError):
@@ -83,6 +82,7 @@ def bytes2hex(data):
 
 
 NAK = mkcmd(160, '')
+
 
 def parse_command(data, fmt, length):
     if data == NAK:

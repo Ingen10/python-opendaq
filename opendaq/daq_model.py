@@ -24,6 +24,9 @@ import time
 from collections import namedtuple
 from enum import IntEnum
 
+from opendaq.outputs import OutputBase
+from opendaq.inputs import InputBase
+
 MIN_FW_VERSION = 131
 
 CalibReg = namedtuple('CalibReg', ['gain', 'offset'])
@@ -42,70 +45,18 @@ class PGAGains(IntEnum):
         a.values = values
         return a
 
-class InputBase(object):
-    _input_id = 0
-    def __init__(self, calib=None, type_str='INP_A', bits=16, vmin=-24, vmax=24, 
-                 _gains=[1, 2, 4, 5, 8, 10, 16, 32], inputmodes=[0], unit=["V"]): 
-        self.type_str = type_str
-        self.bits = bits
-        self.vmin = vmin
-        self.vmax = vmax
-        self._gains = _gains
-        self.inputmodes = inputmodes
-        self.unit = unit
-
-        self.pga_gains = PGAGains.new(self._gains)
-        self.calib = calib
-
-    def raw_to_units(self, raw, gain_id, calibreg1, calibreg2, inputmode=0):
-        adc_gain = 2.**(self.bits-1)/self.vmax
-        gain = adc_gain*self._gains[gain_id]*calibreg1.gain*calibreg2.gain
-        offset = calibreg1.offset + calibreg2.offset*self._gains[gain_id]
-        try:
-            result = [round((v - offset)/gain, 5) for v in raw]
-        except TypeError:
-            result = round((raw - offset)/gain, 5)
-        return (result, self.unit[inputmode])   
-
-    @classmethod
-    def new(cls, input_id, calib=None):
-        """Factory method for instantiating subclasses of InputBase."""
-        for model in cls.__subclasses__():
-            if model._input_id == input_id:
-                return model(calib)
-        raise ValueError("Unknown input ID") 
-
-class OutputBase(object):
-    _output_id = 0
-    def __init__(self, type_str='OUTP_T', bits=16, vmin=-24, vmax=24, unit='V'):
-        self.type_str = type_str
-        self.bits = bits
-        self.vmin = vmin
-        self.vmax = vmax
-        self.unit = unit
-
-    @classmethod
-    def new(cls, output_id):
-        """Factory method for instantiating subclasses of OutputBase."""
-        for model in cls.__subclasses__():
-            if model._output_id == output_id:
-                return model()
-        raise ValueError("Unknown output ID") 
-
 
 class DAQModel(object):
     """Base class for defining OpenDAQ models by inheritance."""
     _id = 0
-    model_str=''
-    serial_fmt='%d'
-    adc_slots=0
-    dac_slots=0
-    npios=0
-    nleds=0
-
-    _input_t=None
-    _output_t=None 
-
+    model_str = ''
+    serial_fmt = '%d'
+    adc_slots = 0
+    dac_slots = 0
+    npios = 0
+    nleds = 0
+    _input_t = None
+    _output_t = None
     def __init__(self, fw_ver, serial):
 
         self.fw_ver = fw_ver
@@ -194,9 +145,9 @@ class DAQModel(object):
 
     def __check_dac_value(self, number, volts):
         if not (0 <= number < len(self.dac)):
-            raise ValueError("Invalid output port selection")       
+            raise ValueError("Invalid output port selection")
         if not (self.dac[number].vmin <= volts <= self.dac[number].vmax):
-            raise ValueError("DAC voltage out of range")  
+            raise ValueError("DAC voltage out of range")
 
     def check_adc_settings(self, pinput, mode, gain):
         if not (1 <= pinput <= len(self.adc)):
@@ -232,7 +183,8 @@ class DAQModel(object):
         calibreg1 = CalibReg(1., 0.) if slot1 < 0 else self.adc_calib[slot1]
         calibreg2 = CalibReg(1., 0.) if slot2 < 0 else self.adc_calib[slot2]
 
-        return self.adc[pinput-1].raw_to_units(raw, gain_id, calibreg1, calibreg2, inputmode)
+        return self.adc[pinput-1].raw_to_units(raw, gain_id, calibreg1,
+                                               calibreg2, inputmode)
 
     def volts_to_raw(self, volts, number):
         """Convert a value in volts to a raw value.

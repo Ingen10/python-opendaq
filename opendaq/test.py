@@ -1,6 +1,5 @@
 import time
 import sys
-import readline
 
 import json
 import logging
@@ -31,7 +30,8 @@ class Test(Calib):
         Calib.__init__(self, port)
 
     def create_test_json(self, results_inputs, results_outputs):
-        filename = '%s_%s_test.json' % (self.serial_str, time.strftime('%y%m%d'))
+        filename = '%s_%s_test.json' % (self.serial_str,
+                                        time.strftime('%y%m%d'))
         f = open(filename, 'w')
         data = {
             "model": self.hw_ver,
@@ -48,7 +48,7 @@ class Test(Calib):
                                   'readings': [
                                                 {'dc_ref': o['ref'],
                                                  'dc_read': o['read']
-                                                }]})
+                                                 }]})
         for i in results_inputs:
             inp = self.get_adc_types(int(i['number']))
             data['items'].append({'dc_range': (inp.vmax - inp.vmin),
@@ -59,7 +59,7 @@ class Test(Calib):
                                                 {'dc_ref': it['ref'],
                                                  'dc_read': it['read'],
                                                  'gain': it['gain']
-                                                } for it in i['items']]})
+                                                 } for it in i['items']]})
         json.dump(data, f, indent=2)
         f.close()
 
@@ -160,6 +160,26 @@ class Test(Calib):
                                             'read': self.read_analog()[0]})
         return results
 
+    def __test_adc_Ptype(self, pinputs):
+        results_ohms = [{'number': p, 'items': [],
+                        'unit': "Ohms"} for p in pinputs]
+        results_temp = [{'number': p, 'items': [],
+                        'unit': "ºC"} for p in pinputs]
+        for idx, p in enumerate(pinputs):
+            self.conf_adc(p, 0)
+            while not yes_no("Set 150 ohms at input %d and press 'y' when ready.\n" % p):
+                pass
+            results_ohms[idx]['items'].append({
+                                               'ref': 150.0,
+                                               'read': self.read_analog()[0]})
+            self.conf_adc(p, 1)
+            while not yes_no("Set 25 ºC at input %d and press 'y' when ready.\n" % p):
+                pass
+            results_temp[idx]['items'].append({
+                                               'ref': 25.0,
+                                               'read': self.read_analog()[0]})
+        return results_ohms.extend(results_temp)
+
     def __test_adc(self, inp_type, pinputs):
         print(pinputs)
         if inp_type == InputType.INPUT_TYPE_A:
@@ -172,6 +192,8 @@ class Test(Calib):
             results = self.__test_adc_Stype(pinputs)
         elif inp_type == InputType.INPUT_TYPE_N:
             results = self.__test_adc_Ntype(pinputs)
+        elif inp_type == InputType.INPUT_TYPE_P:
+            results = self.__test_adc_Ptype(pinputs)
         return results
 
     def test_adc(self):
@@ -188,9 +210,10 @@ class Test(Calib):
     def __test_dac_Ltype(self, outputs):
         current = 10.0
         unit = self.get_dac_types(outputs[0]).unit
-        results = [{'number': 0, 'ref': 0, 'read': 0, 'unit': unit} for i in range(len(outputs))]
+        results = [{'number': 0, 'ref': 0, 'read': 0,
+                    'unit': unit} for i in range(len(outputs))]
         for idx, o in enumerate(outputs):
-            while not yes_no("Connect the analog output %d to the power and press 'y' when ready.\n" % o):
+            while not yes_no("Connect the AOUT%d to the power and press 'y' when ready.\n" % o):
                 pass
             r = self.set_analog(current, o)
             while not(r):
@@ -207,7 +230,8 @@ class Test(Calib):
         vmax = self.get_adc_types(0).vmax
         volts = range(int(vmin), int(vmax), 2)
         unit = self.get_dac_types(outputs[0]).unit
-        results = [{'number': 1, 'ref': 0, 'read': 0, 'unit': unit} for i in range(len(volts))]
+        results = [{'number': 1, 'ref': 0, 'read': 0,
+                    'unit': unit} for i in range(len(volts))]
         for idx, v in enumerate(volts):
             self.set_analog(v)
             time.sleep(.5)
@@ -221,7 +245,8 @@ class Test(Calib):
         volts = range(int(vmin), int(vmax))
         set_values, read_values = self.measure_dac(volts, meter)
         unit = self.get_dac_types(outputs[0]).unit
-        results = [{'number': 1, 'ref': 0, 'read': 0, 'unit': unit} for i in range(len(volts))]
+        results = [{'number': 1, 'ref': 0, 'read': 0,
+                    'unit': unit} for i in range(len(volts))]
         for idx in range(len(volts)):
             results[idx]['ref'] = set_values[idx]
             results[idx]['read'] = read_values[idx]

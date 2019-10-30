@@ -1,7 +1,6 @@
 import sys
 import logging
 import time
-import os
 
 import argparse
 
@@ -39,7 +38,7 @@ def set_voltage_cmd(args):
     daq = DAQ(args.port)
     channels = []
     if not args.channel:
-        channels = range(1, daq.dac_slots + 1)
+        channels = range(1, daq.get_slots()[1] + 1)
     else:
         channels.append(args.channel)
     for ch in channels:
@@ -48,7 +47,7 @@ def set_voltage_cmd(args):
         print("Press Ctrl-C to exit")
         try:
             while True:
-                if daq.model_str == 'EM08C-RRLL':
+                if daq.hw_ver == 'EM08C-RRLL':
                     print("Enter new current (mA): ")
                 else:
                     print("Enter new voltage (V): ")

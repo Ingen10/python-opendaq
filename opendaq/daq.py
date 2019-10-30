@@ -22,12 +22,11 @@ from __future__ import print_function
 from __future__ import division
 import time
 import struct
-import array
 import serial
 from threading import Thread
 from enum import IntEnum
-from .common import check_stream_crc, mkcmd, parse_command, bytes2hex, escape_bytes
-from .common import LengthError, CRCError
+from .common import mkcmd, parse_command, bytes2hex, escape_bytes
+from .common import LengthError
 from .experiment import Trigger, ExpMode, DAQStream, DAQBurst, DAQExternal
 from .simulator import DAQSimulator
 from .models import DAQModel
@@ -35,6 +34,7 @@ from .models import DAQModel
 BAUDS = 115200
 MAX_CHANNELS = 4
 MAX_BUFFER_LINE = 50
+
 
 class CMD(IntEnum):
     AIN = 1
@@ -232,7 +232,7 @@ class DAQ(object):
 
     def get_adc_types(self, pinput=None):
         """Get model ADCs
-        :param pinput: Specific input to return 
+        :param pinput: Specific input to return
         """
         if pinput is None:
             return (self.__model.adc)
@@ -254,14 +254,12 @@ class DAQ(object):
             raise ValueError("Invalid positive input selection")
         return(self.__model.adc[pinput-1].pga_gains.values)
 
-
     def get_input_modes(self, pinput):
         """Get input modes (SE, DE, shunt activated, etc.)
         """
         if not (1 <= pinput <= len(self.__model.adc)):
             raise ValueError("Invalid positive input selection")
         print(self.__model.adc[pinput-1].inputmodes)
-
 
     def set_id(self, id):
         """Identify openDAQ device.
@@ -322,7 +320,8 @@ class DAQ(object):
         "param raw: Raw ADC value.
         :raises: ValueError
         """
-        return self.send_command(mkcmd(CMD.SET_DAC, 'hB', int(round(raw)), number), 'hB')[0]
+        return self.send_command(mkcmd(CMD.SET_DAC, 'hB', int(round(raw)),
+                                       number), 'hB')[0]
 
     def set_analog(self, volts, number=1):
         """Set DAC output (volts).
@@ -345,7 +344,6 @@ class DAQ(object):
         :returns: Voltage value.
         """
         value = self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
-        print("VALUE: %d\n"%value)
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
 
@@ -737,7 +735,7 @@ class DAQ(object):
         :returns: ValueError
         """
         if not 1 <= number <= MAX_CHANNELS:
-                raise ValueError("Invalid DataChannel number")
+            raise ValueError("Invalid DataChannel number")
 
         self.send_command(mkcmd(CMD.CHANNEL_FLUSH, 'B', number), 'B')
 
@@ -942,7 +940,7 @@ class DAQ(object):
             self.__trigger_setup(s.number, s.trg_mode, s.trg_value)
 
             if s.get_mode() == ExpMode.ANALOG_OUT:
-                data, offset = s.get_preload_data()
+                data, _ = s.get_preload_data()
                 num_buffers = int(len(data) / MAX_BUFFER_LINE)
                 for i in range(num_buffers):
                     init = i * MAX_BUFFER_LINE
@@ -969,7 +967,7 @@ class DAQ(object):
         """
         if self.__thread and self.__thread.isAlive():
             self.send_command(mkcmd(CMD.STREAM_STOP, ''))
-            self.__thread.join() # wait for thread to finish
+            self.__thread.join()  # wait for thread to finish
 
             if clear:
                 self.clear_experiments()
