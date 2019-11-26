@@ -23,6 +23,7 @@ from __future__ import division
 import time
 import struct
 import serial
+import numpy as np
 from threading import Thread
 from enum import IntEnum
 from .common import mkcmd, parse_command, bytes2hex, escape_bytes
@@ -43,6 +44,7 @@ class CMD(IntEnum):
     AIN_ALL = 4
     PIO_DIR = 5
     PORT = 7
+    AIN_MD = 8
     PORT_DIR = 9
     PWM_INIT = 10
     PWM_STOP = 11
@@ -93,6 +95,11 @@ class LedColor(IntEnum):
     RED = 2
     ORANGE = 3
 
+class ADCMode(IntEnum):
+    MEAN = 0
+    RMS = 1
+    MAX = 2
+    MIN = 3
 
 class DAQ(object):
     """This class represents an OpenDAQ device."""
@@ -337,6 +344,14 @@ class DAQ(object):
         """
         return self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
 
+    def read_adc_mode(self, rdmode):
+        """Read data from ADC and return the raw value.
+
+        :param rdmode: Acquisition mode (Mean, RMS, peak to peak, peak)
+        :returns: Selection of ADC value.
+        """
+        return self.send_command(mkcmd(CMD.AIN_MD, 'B', rdmode), 'q')[0]
+
     def read_analog(self):
         """Read data from ADC in volts.
 
@@ -345,7 +360,53 @@ class DAQ(object):
         value = self.send_command(mkcmd(CMD.AIN, ''), 'h')[0]
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
+    def read_mean(self):
+        """Read data from ADC in volts.
 
+        :returns: Voltage value.
+        """
+        value = self.read_adc_mode(ADCMode.MEAN)
+        return value
+        """
+        return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
+                                         self.__inputmode)
+        """
+
+    def read_rms(self):
+        """Read data from ADC in volts.
+
+        :returns: Voltage value.
+        """
+        value = np.sqrt(self.read_adc_mode(ADCMode.RMS))
+        return value
+        """
+        return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
+                                         self.__inputmode)
+        """
+    def read_peak2peak(self):
+        """Read data from ADC in volts.
+
+        :returns: Voltage value.
+        """
+        value = abs(self.read_adc_mode(ADCMode.MAX) - self.read_adc_mode(ADCMode.MIN))
+        return value
+        """
+        return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
+                                         self.__inputmode)
+        """
+
+    def read_peak(self):
+        """Read data from ADC in volts.
+
+        :returns: Voltage value.
+        """
+        value = max(abs(self.read_adc_mode(ADCMode.MAX)), 
+                    abs(self.read_adc_mode(ADCMode.MIN)))
+        return value
+        """
+        return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
+                                         self.__inputmode)
+        """
     def read_all(self, nsamples=20, gain=0):
         """Read data from all analog inputs
 
