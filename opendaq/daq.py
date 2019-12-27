@@ -366,11 +366,8 @@ class DAQ(object):
         :returns: Voltage value.
         """
         value = self.read_adc_mode(ADCMode.MEAN)
-        return value
-        """
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
-        """
 
     def read_rms(self):
         """Read data from ADC in volts.
@@ -378,35 +375,29 @@ class DAQ(object):
         :returns: Voltage value.
         """
         value = np.sqrt(self.read_adc_mode(ADCMode.RMS))
-        return value
-        """
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
-        """
+
     def read_peak2peak(self):
         """Read data from ADC in volts.
 
         :returns: Voltage value.
         """
         value = abs(self.read_adc_mode(ADCMode.MAX) - self.read_adc_mode(ADCMode.MIN))
-        return value
-        """
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
                                          self.__inputmode)
-        """
 
     def read_peak(self):
         """Read data from ADC in volts.
 
         :returns: Voltage value.
         """
-        value = max(abs(self.read_adc_mode(ADCMode.MAX)), 
-                    abs(self.read_adc_mode(ADCMode.MIN)))
-        return value
-        """
+        mean =  self.read_adc_mode(ADCMode.MEAN)
+        value = max(abs(self.read_adc_mode(ADCMode.MAX) - mean), 
+                    abs(self.read_adc_mode(ADCMode.MIN) - mean))
         return self.__model.raw_to_volts(value, self.__gain, self.__pinput,
-                                         self.__inputmode)
-        """
+                                         self.__inputmode)                               
+        
     def read_all(self, nsamples=20, gain=0):
         """Read data from all analog inputs
 

@@ -104,10 +104,12 @@ class Calib(DAQ):
         else:
             self.set_analog(volts)
         for p in pinputs:
+            print("Calibrating offset of input ", p)
             gains = self.get_input_gains(p)
             raw_read = np.zeros(len(gains))
             for idx, _ in enumerate(gains):
                 self.conf_adc(p, 0, idx)
+                time.sleep(1)
                 raw_read[idx] = self.read_adc()
             corr_gain, corr_offset = np.polyfit(gains, raw_read, 1)
             calib[p - 1] = CalibReg(calib[p - 1].gain, corr_offset)
@@ -133,13 +135,13 @@ class Calib(DAQ):
         return calib
 
     def __calib_adc_Atype(self, pinputs):
-        print("ENTRADAS TIPO A")
+        print("A-TYPE INPUTS")
         print(pinputs)
         return self.__calib_adc_ANtype(pinputs)
 
     def __calib_adc_Ntype(self, pinputs):
         # Igual que A
-        print("ENTRADAS TIPO N")
+        print("N-TYPE INPUTS")
         print(pinputs)
         return self.__calib_adc_ANtype(pinputs, isAtype=False)
 
@@ -192,7 +194,7 @@ class Calib(DAQ):
 
     def __calib_adc_Mtype(self, pinputs):
         calib = self.get_adc_calib()
-        print("ENTRADAS TIPO M")
+        print("M-TYPE INPUTS")
         print(pinputs)
         volts = 0.0
         self.set_analog(volts)
@@ -224,7 +226,7 @@ class Calib(DAQ):
 
     def __calib_adc_Stype(self, pinputs):
         calib = self.get_adc_calib()
-        print("ENTRADAS TIPO S")
+        print("S-TYPE INPUTS")
         print(pinputs)
         volts = [1., 2., 3., 4.]
         for p in pinputs:
@@ -249,7 +251,7 @@ class Calib(DAQ):
 
     def __calib_adc_Ptype(self, pinputs):
         calib = self.get_adc_calib()
-        print("ENTRADAS TIPO P")
+        print("P-TYPE INPUTS")
         print(pinputs)
         set_values = [100, 200]
         read_values = np.zeros(len(set_values))
@@ -294,7 +296,7 @@ class Calib(DAQ):
 
     def __calib_dac_Ltype(self, outputs, calib):
         calib = self.get_dac_calib()
-        print("SALIDAS TIPO L")
+        print("L-TYPE OUTPUTS")
         print(outputs)
         current_values = [5, 20]
         for idx, o in enumerate(outputs):
