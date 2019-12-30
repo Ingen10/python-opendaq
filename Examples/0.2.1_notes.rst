@@ -1,0 +1,8 @@
+New functions
+----------------
+
+- trigger_mode(number)
+- get_state_ch(number)
+- flush_channel(number)
+- trigger_setup(trg_mode, trg_value)
+
