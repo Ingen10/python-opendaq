@@ -2,11 +2,13 @@
 
 import os
 import time
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from opendaq import DAQ, ExpMode, Gains
 
 # Change here the serial port in which the openDAQ is connected
-port = '/dev/ttyUSB0' if os.name == 'posix' else 'COM3'
+port = '/dev/ttyUSB1' if os.name == 'posix' else 'COM3'
 
 # Connect to the device
 daq = DAQ(port)
@@ -24,9 +26,8 @@ t = []
 data = []
 
 # Initiate the plot
-fig = plt.figure()
-plt.ion()
-plt.show()
+plt.ioff()
+
 
 # start the experiment
 daq.start()
@@ -39,11 +40,11 @@ while daq.is_measuring:
         data.extend(a)
         t.extend([t0+(data_rate*x)/1000.0 for x in range(l)])
         t0 += (l*data_rate)/1000.0
-        plt.plot(t, data, color="blue", linewidth=2.5, linestyle="-")
-        plt.draw()
     except KeyboardInterrupt:
-        plt.close()
         # stop the experiment
         daq.stop()
         daq.close()
         break
+plt.plot(t, data, color="blue", linewidth=2.5, linestyle="-")
+plt.show()
+plt.close()

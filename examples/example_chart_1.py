@@ -1,7 +1,10 @@
 """Drawing a real-time chart using command-response mode"""
 
 import os
+import time
 from time import sleep
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from opendaq import DAQ
 
@@ -17,9 +20,7 @@ daq.read_adc()
 period = 0.05
 
 # Initiate plot:
-fig = plt.figure()
-plt.ion()
-plt.show()
+plt.ioff()
 
 # initiate lists
 t = []
@@ -33,12 +34,12 @@ for i in range(50):
         t.append(period*i)     # update time list
 
         print(i, data[i])
-
-        plt.plot(t, data, color="blue", linewidth=2.5, linestyle="-")
-        plt.draw()
         sleep(period)    # wait for next point
     except KeyboardInterrupt:
+        plt.close()
+        daq.close()
         break
-
+plt.plot(t, data, color="blue", linewidth=2.5, linestyle="-")
+plt.show()
 plt.close()
 daq.close()

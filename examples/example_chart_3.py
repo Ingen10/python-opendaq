@@ -3,6 +3,8 @@ and use another experiment to generate the signal"""
 
 import os
 import time
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from opendaq import DAQ, ExpMode, Gains
 
@@ -29,9 +31,7 @@ t = []
 data = []
 
 # Initiate the plot
-fig = plt.figure()
-plt.ion()
-plt.show()
+plt.ioff()
 
 # start the experiment
 daq.start()
@@ -49,6 +49,7 @@ while daq.is_measuring:
         plt.plot(t, data, color="blue", linewidth=1.0, linestyle="-")
         plt.draw()
     except KeyboardInterrupt:
+        plt.show()
         plt.close()
         # stop the experiment
         daq.stop()
