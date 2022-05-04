@@ -1,5 +1,7 @@
 Example scripts
 ----------------------
+Is necessary to have installed matplotlib's version 2.2.2 to the chart scripts work.
+
 Connect terminals A8 to DAC and A7 to GND in the instrument to get meaningful results 
 
 - example_stream_1a.py: Creating two streams and allowing them to end
