@@ -32,12 +32,6 @@ For support, e-mail to support@open-daq.com
 You will need **administrator rights** (root access) to install this package
 system-wide.
 
-To install the last stable version:
-
-```sh
-    $ pip install opendaq
-```
-
 To install the development version (it is highly recommended to use a
 [virtual environment](https://virtualenv.pypa.io/en/stable/) for this):
 
